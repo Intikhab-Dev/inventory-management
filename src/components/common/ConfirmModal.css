@@ -1,0 +1,72 @@
+/* OVERLAY */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* BOX */
+.modal-box {
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  width: 350px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: scaleIn 0.3s ease;
+}
+
+.modal-box h3 {
+  margin-bottom: 10px;
+}
+
+.modal-box p {
+  font-size: 14px;
+  color: #555;
+}
+
+/* ACTIONS */
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn {
+  padding: 8px 15px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn.cancel {
+  background: #e5e7eb;
+}
+
+.btn.delete {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn.delete:hover {
+  opacity: 0.9;
+}
+
+/* ANIMATION */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

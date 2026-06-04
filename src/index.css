@@ -1,0 +1,52 @@
+/* body {
+  background: #f9fafb;
+  color: #111;
+  transition: all 0.3s ease;
+}
+
+body.dark {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+body.dark .kpi-card,
+body.dark .chart-card,
+body.dark .nav-container {
+  background: #1e293b !important;
+  color: #e5e7eb;
+}
+
+body.dark .nav-btn {
+  color: #cbd5f5;
+}
+
+body.dark .nav-btn.active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+body.dark table {
+  background: #1e293b;
+  color: #e5e7eb;
+}
+
+body.dark th {
+  background: #334155;
+}
+
+body.dark .view-modal {
+  background: #1e293b;
+  color: #e5e7eb;
+}
+
+.theme-toggle {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: 10px;
+  color: #555;
+}
+
+body.dark .theme-toggle {
+  color: #facc15;
+} */
