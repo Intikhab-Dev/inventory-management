@@ -23,12 +23,19 @@
   position: relative;
   animation: fadeInUp 0.35s ease;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.dark .view-modal {
+  background: #0f172a;
+  color: #f1f5f9;
 }
 
 /* TITLE */
 .modal-title {
   text-align: center;
   margin-bottom: 15px;
+  font-weight: 700;
 }
 
 /* CLOSE ICON */
@@ -45,24 +52,91 @@
   color: #000;
 }
 
+/* SCROLLABLE MODAL BODY */
+.modal-body-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.modal-body-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.modal-body-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+body.dark .modal-body-scroll::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
 /* GRID */
 .view-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 10px;
+}
+
+/* SPEC CARD DETAILS */
+.view-grid > div {
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+body.dark .view-grid > div {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 /* LABEL */
 .view-grid label {
-  font-size: 12px;
-  color: #666;
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+}
+
+body.dark .view-grid label {
+  color: #94a3b8;
 }
 
 /* VALUE */
 .view-grid p {
-  margin: 2px 0 8px;
-  font-weight: 500;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+body.dark .view-grid p {
+  color: #f1f5f9;
+}
+
+.description-text {
+  font-weight: 500 !important;
+  color: #475569 !important;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+body.dark .description-text {
+  color: #cbd5e1 !important;
 }
 
 /* FULL WIDTH */
@@ -76,6 +150,10 @@
   font-weight: bold;
 }
 
+body.dark .highlight {
+  color: #818cf8;
+}
+
 /* STATUS */
 .active {
   color: #16a34a;
@@ -87,20 +165,113 @@
   font-weight: bold;
 }
 
-/* BUTTON */
-.close-btn {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+/* ACTIONS CONTAINER */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+/* PRINT BUTTON */
+.print-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #059669, #10b981);
   color: #fff;
   border: none;
   border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
 }
 
-.close-btn:hover {
-  opacity: 0.9;
+.print-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.3);
+}
+
+/* CLOSE BUTTON */
+.close-btn-secondary {
+  flex: 1;
+  padding: 10px 16px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Dark mode compatibility */
+body.dark .close-btn-secondary {
+  background: #1e293b;
+  border-color: rgba(255,255,255,0.1);
+  color: #cbd5e1;
+}
+
+body.dark .close-btn-secondary:hover {
+  background: #334155;
+  color: #fff;
+}
+
+/* VIEW PDF BUTTON */
+.view-pdf-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(244, 63, 94, 0.2);
+}
+
+.view-pdf-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(244, 63, 94, 0.3);
+}
+
+/* MODAL IMAGE BANNER */
+.modal-image-banner {
+  width: 100%;
+  height: 130px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.modal-image-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.modal-image-banner:hover img {
+  transform: scale(1.03);
 }
 
 /* ANIMATION */
@@ -113,4 +284,96 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* QR CODE SECTION */
+.qr-code-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+body.dark .qr-code-section {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.qr-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
+  text-align: center;
+}
+
+body.dark .qr-title {
+  color: #94a3b8;
+}
+
+.qr-content-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-image-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.qr-img {
+  width: 130px;
+  height: 130px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.qr-download-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  color: #4f46e5;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.qr-download-btn:hover {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.25);
+}
+
+body.dark .qr-download-btn {
+  background: #1e293b;
+  color: #818cf8;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark .qr-download-btn:hover {
+  background: #818cf8;
+  color: #0f172a;
+  border-color: #818cf8;
 }

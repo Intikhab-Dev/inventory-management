@@ -5,8 +5,8 @@ const ConfirmModal = ({ show, onClose, onConfirm, itemName }) => {
   if (!show) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-box">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3>Confirm Delete</h3>
 
         <p>
