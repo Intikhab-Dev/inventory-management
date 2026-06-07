@@ -109,13 +109,13 @@ const Dashboard = ({ items, darkMode }) => {
 
       const matchesRange =
         range === "all" ? true :
-        range === "7" ? diffDays <= 7 :
-        range === "15" ? diffDays <= 15 :
-        range === "30" ? diffDays <= 30 : true;
+          range === "7" ? diffDays <= 7 :
+            range === "15" ? diffDays <= 15 :
+              range === "30" ? diffDays <= 30 : true;
 
       const matchesWarehouse =
         warehouseFilter === "all" ? true :
-        (item.warehouse || "").trim() === warehouseFilter;
+          (item.warehouse || "").trim() === warehouseFilter;
 
       return matchesRange && matchesWarehouse;
     });
@@ -291,33 +291,33 @@ const Dashboard = ({ items, darkMode }) => {
   // 🔹 STOCK FLOW IN/OUT ANALYSIS
   const stockFlowData = useMemo(() => {
     const flowMap = {}; // { 'YYYY-MM-DD': { in: 0, out: 0 } }
-    
+
     transactions.forEach((tx) => {
       if (!tx.timestamp) return;
       const diffDays = (now - Number(tx.timestamp)) / (1000 * 60 * 60 * 24);
-      
+
       if (range !== "all") {
         if (range === "7" && diffDays > 7) return;
         if (range === "15" && diffDays > 15) return;
         if (range === "30" && diffDays > 30) return;
       }
-      
+
       const dateKey = new Date(Number(tx.timestamp)).toISOString().split("T")[0];
       if (!flowMap[dateKey]) {
         flowMap[dateKey] = { in: 0, out: 0 };
       }
-      
+
       if (tx.type === "IN") {
         flowMap[dateKey].in += Number(tx.qty) || 0;
       } else if (tx.type === "OUT") {
         flowMap[dateKey].out += Number(tx.qty) || 0;
       }
     });
-    
+
     const dates = Object.keys(flowMap).sort();
     const inValues = dates.map(d => flowMap[d].in);
     const outValues = dates.map(d => flowMap[d].out);
-    
+
     return { dates, inValues, outValues };
   }, [transactions, range, now]);
 
@@ -937,7 +937,7 @@ const Dashboard = ({ items, darkMode }) => {
               </span>
               <i className={`bi bi-chevron-down ms-2 arrow-icon ${showWarehouseDropdown ? "rotate" : ""}`}></i>
             </button>
-            
+
             {showWarehouseDropdown && (
               <div className="custom-dropdown-list animate-slide-up">
                 <div
@@ -974,13 +974,13 @@ const Dashboard = ({ items, darkMode }) => {
               <i className="bi bi-calendar3 me-2 text-primary"></i>
               <span>
                 {range === "all" ? "All Time" :
-                 range === "7" ? "7 Days" :
-                 range === "15" ? "15 Days" :
-                 range === "30" ? "30 Days" : range}
+                  range === "7" ? "7 Days" :
+                    range === "15" ? "15 Days" :
+                      range === "30" ? "30 Days" : range}
               </span>
               <i className={`bi bi-chevron-down ms-2 arrow-icon ${showRangeDropdown ? "rotate" : ""}`}></i>
             </button>
-            
+
             {showRangeDropdown && (
               <div className="custom-dropdown-list animate-slide-up">
                 {[
@@ -1011,7 +1011,7 @@ const Dashboard = ({ items, darkMode }) => {
 
         {/* MAIN COLUMN (LEFT) */}
         <div className="dashboard-main">
-          
+
           {/* KPI CARDS */}
           <div className="kpi-grid">
             <div className="kpi-card items">
@@ -1163,7 +1163,7 @@ const Dashboard = ({ items, darkMode }) => {
                 Supplier Performance & Analytics
               </h3>
             </div>
-            
+
             <div className="table-responsive">
               {supplierStats.length === 0 ? (
                 <p className="text-muted text-center py-3">No supplier data available</p>
@@ -1223,7 +1223,7 @@ const Dashboard = ({ items, darkMode }) => {
                 Based on historic outbound demand rates
               </span>
             </div>
-            
+
             <div className="table-responsive">
               {reorderForecast.length === 0 ? (
                 <p className="text-muted text-center py-3">No inventory items found to forecast</p>
@@ -1242,17 +1242,17 @@ const Dashboard = ({ items, darkMode }) => {
                   </thead>
                   <tbody>
                     {reorderForecast.map((item) => {
-                      const daysDisplay = item.daysLeft === Infinity 
-                        ? "—" 
-                        : item.daysLeft <= 0 
-                          ? "Immediate" 
+                      const daysDisplay = item.daysLeft === Infinity
+                        ? "—"
+                        : item.daysLeft <= 0
+                          ? "Immediate"
                           : `${Math.ceil(item.daysLeft)} days`;
-                      const reorderDateDisplay = item.daysLeft === Infinity 
-                        ? "—" 
-                        : item.daysLeft <= 0 
-                          ? "Immediate" 
+                      const reorderDateDisplay = item.daysLeft === Infinity
+                        ? "—"
+                        : item.daysLeft <= 0
+                          ? "Immediate"
                           : getSuggestedReorderDate(item.daysLeft);
-                      
+
                       let daysStyle = {};
                       if (item.daysLeft < 3) {
                         daysStyle = { color: "#ef4444", fontWeight: "700" };
@@ -1261,7 +1261,7 @@ const Dashboard = ({ items, darkMode }) => {
                       } else {
                         daysStyle = { color: "#22c55e", fontWeight: "600" };
                       }
-                      
+
                       return (
                         <tr key={item.id}>
                           <td>

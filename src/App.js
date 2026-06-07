@@ -17,6 +17,7 @@ import Reports from "./components/reports/Reports";
 import StockOut from "./components/stockout/StockOut";
 import StockLedger from "./components/ledger/StockLedger";
 import StockTransfer from "./components/transfer/StockTransfer";
+import StockAudit from "./components/audit/StockAudit";
 
 // Services
 import { authService } from "./services/authService";
@@ -435,6 +436,58 @@ function App() {
     setPage("list");
   };
 
+  // 🔹 Stock Audit Reconciliation Handler
+  const handleCompleteAudit = (adjustments, warehouse) => {
+    if (!adjustments || adjustments.length === 0) return;
+
+    let adjustedCount = 0;
+    const updatedItems = items.map(item => {
+      const adj = adjustments.find(a => String(a.id) === String(item.id));
+      if (adj && adj.countedQty !== "") {
+        const currentQty = Number(item.quantity) || 0;
+        const nextQty = Number(adj.countedQty);
+        const delta = nextQty - currentQty;
+
+        if (delta !== 0) {
+          adjustedCount++;
+          // Log transaction
+          transactionService.addTransaction({
+            itemId: item.code,
+            itemName: item.name,
+            type: delta > 0 ? "IN" : "OUT",
+            qty: Math.abs(delta),
+            reason: "Inventory Audit Reconciliation",
+            notes: `Adjusted via stock take audit for ${warehouse || "All Warehouses"}.`,
+            user: currentUser?.name || "System"
+          });
+
+          // Log activity
+          activityService.addLog(
+            "update_item",
+            `Reconciled stock for "${item.name}" from ${currentQty} to ${nextQty} (Variance: ${delta > 0 ? '+' : ''}${delta})`,
+            currentUser?.name
+          );
+
+          return {
+            ...item,
+            quantity: nextQty,
+            total: nextQty * (Number(item.price) || 0)
+          };
+        }
+      }
+      return item;
+    });
+
+    if (adjustedCount > 0) {
+      saveItems(updatedItems);
+      setItems(updatedItems);
+      showToast(`Audit reconciliation completed. ${adjustedCount} items updated.`);
+    } else {
+      showToast("Audit completed. No stock discrepancies found.");
+    }
+    setPage("list");
+  };
+
   // 🔹 Delete Item
   const handleDelete = (id) => {
     const deletedItem = items.find(item => item.id === id);
@@ -517,6 +570,8 @@ function App() {
         return "Stock Out (Dispatch)";
       case "transfer":
         return "Stock Warehouse Transfer";
+      case "audit":
+        return "Physical Inventory Audit";
       case "ledger":
         return "Stock Transaction Ledger";
       case "reports":
@@ -597,6 +652,10 @@ function App() {
 
           {page === "transfer" && (
             <StockTransfer items={items} onTransfer={handleStockTransfer} />
+          )}
+
+          {page === "audit" && (
+            <StockAudit items={items} onCompleteAudit={handleCompleteAudit} />
           )}
 
           {page === "ledger" && (

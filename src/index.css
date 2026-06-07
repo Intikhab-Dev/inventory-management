@@ -309,3 +309,19 @@ body.dark .view-grid p.highlight {
 body.dark .view-grid div {
   border-bottom-color: rgba(255, 255, 255, 0.05);
 }
+
+/* Selection Colors (Theme-friendly) */
+::selection {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: #4f46e5;
+}
+
+body.dark ::selection {
+  background-color: rgba(129, 140, 248, 0.35);
+  color: #f8fafc;
+}
+
+/* Global Dark Mode Muted Text Override */
+body.dark .text-muted {
+  color: #94a3b8 !important;
+}

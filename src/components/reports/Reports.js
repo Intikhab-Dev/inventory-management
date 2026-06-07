@@ -7,6 +7,9 @@ import "./Reports.css";
 const Reports = ({ items = [] }) => {
     const [activeTab, setActiveTab] = useState("summary");
     const [transactions, setTransactions] = useState([]);
+    const [filterWarehouse, setFilterWarehouse] = useState("all");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const printRef = useRef(null);
 
     useEffect(() => {
@@ -15,20 +18,67 @@ const Reports = ({ items = [] }) => {
         }
     }, [activeTab]);
 
+    // Extract unique warehouses from all items in system
+    const warehouses = useMemo(() => {
+        const unique = new Set();
+        items.forEach((item) => {
+            if (item.warehouse) {
+                const w = item.warehouse.trim();
+                if (w) unique.add(w);
+            }
+        });
+        return [...unique].sort();
+    }, [items]);
+
+    // Filter items based on Warehouse and Purchase Date Range
+    const filteredItems = useMemo(() => {
+        return items.filter((item) => {
+            if (filterWarehouse !== "all") {
+                if ((item.warehouse || "").trim().toLowerCase() !== filterWarehouse.trim().toLowerCase()) {
+                    return false;
+                }
+            }
+            if (startDate) {
+                if (!item.purchaseDate || item.purchaseDate < startDate) {
+                    return false;
+                }
+            }
+            if (endDate) {
+                if (!item.purchaseDate || item.purchaseDate > endDate) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [items, filterWarehouse, startDate, endDate]);
+
+    // Filter transactions based on selected Warehouse
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(tx => {
+            if (filterWarehouse !== "all") {
+                const item = items.find(i => i.code === tx.itemId);
+                if (!item || (item.warehouse || "").trim().toLowerCase() !== filterWarehouse.trim().toLowerCase()) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [transactions, items, filterWarehouse]);
+
     /* ── Computed Stats ── */
     const stats = useMemo(() => {
-        if (!items.length) return null;
+        if (!filteredItems.length) return null;
 
-        const totalItems    = items.length;
-        const totalQty      = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
-        const totalValue    = items.reduce((s, i) => s + Number(i.total    || 0), 0);
-        const activeItems   = items.filter(i => i.status === "1").length;
-        const lowStock      = items.filter(i => Number(i.quantity) <= (Number(i.minThreshold) || 5));
-        const outOfStock    = items.filter(i => Number(i.quantity) === 0);
+        const totalItems    = filteredItems.length;
+        const totalQty      = filteredItems.reduce((s, i) => s + Number(i.quantity || 0), 0);
+        const totalValue    = filteredItems.reduce((s, i) => s + Number(i.total    || 0), 0);
+        const activeItems   = filteredItems.filter(i => i.status === "1").length;
+        const lowStock      = filteredItems.filter(i => Number(i.quantity) <= (Number(i.minThreshold) || 5));
+        const outOfStock    = filteredItems.filter(i => Number(i.quantity) === 0);
 
         // By Category
         const byCat = {};
-        items.forEach(i => {
+        filteredItems.forEach(i => {
             const c = i.category || "Uncategorised";
             if (!byCat[c]) byCat[c] = { count: 0, qty: 0, value: 0 };
             byCat[c].count++;
@@ -38,7 +88,7 @@ const Reports = ({ items = [] }) => {
 
         // By Warehouse
         const byWh = {};
-        items.forEach(i => {
+        filteredItems.forEach(i => {
             const w = i.warehouse || "Unassigned";
             if (!byWh[w]) byWh[w] = { count: 0, qty: 0, value: 0 };
             byWh[w].count++;
@@ -48,7 +98,7 @@ const Reports = ({ items = [] }) => {
 
         // By Supplier
         const bySupplier = {};
-        items.forEach(i => {
+        filteredItems.forEach(i => {
             const s = i.supplier || "Unknown";
             if (!bySupplier[s]) bySupplier[s] = { count: 0, value: 0 };
             bySupplier[s].count++;
@@ -56,7 +106,7 @@ const Reports = ({ items = [] }) => {
         });
 
         // Top 5 by value
-        const topByValue = [...items]
+        const topByValue = [...filteredItems]
             .sort((a, b) => Number(b.total) - Number(a.total))
             .slice(0, 5);
 
@@ -69,7 +119,7 @@ const Reports = ({ items = [] }) => {
             const key = d.toLocaleString("en-IN", { month: "short", year: "numeric" });
             monthly[key] = 0;
         }
-        items.forEach(i => {
+        filteredItems.forEach(i => {
             if (i.createdDate) {
                 const d = new Date(Number(i.createdDate));
                 const key = d.toLocaleString("en-IN", { month: "short", year: "numeric" });
@@ -82,7 +132,7 @@ const Reports = ({ items = [] }) => {
             lowStockCount: lowStock.length, outOfStockCount: outOfStock.length,
             byCat, byWh, bySupplier, topByValue, monthly,
         };
-    }, [items]);
+    }, [filteredItems]);
 
     /* ── Export ── */
     const exportExcel = () => {
@@ -171,6 +221,73 @@ const Reports = ({ items = [] }) => {
                 </button>
             </div>
 
+            {/* ── Filters Panel ── */}
+            <div className="report-card reports-filter-card mt-3">
+                <h6 className="rcard-title" style={{ marginBottom: "12px" }}>
+                    <i className="bi bi-funnel-fill text-primary me-2"></i> Report Filter Controls
+                </h6>
+                <div className="reports-filter-grid">
+                    <div className="filter-group">
+                        <label>Warehouse</label>
+                        <select
+                            value={filterWarehouse}
+                            onChange={(e) => setFilterWarehouse(e.target.value)}
+                            className="tform-input"
+                        >
+                            <option value="all">All Warehouses</option>
+                            {warehouses.map(w => (
+                                <option key={w} value={w}>{w}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="filter-group">
+                        <label>Purchase Start Date</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            max={endDate || undefined}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setStartDate(val);
+                                if (endDate && val && val > endDate) {
+                                    setEndDate("");
+                                }
+                            }}
+                            className="tform-input"
+                        />
+                    </div>
+                    <div className="filter-group">
+                        <label>Purchase End Date</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            min={startDate || undefined}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setEndDate(val);
+                                if (startDate && val && val < startDate) {
+                                    setStartDate("");
+                                }
+                            }}
+                            className="tform-input"
+                        />
+                    </div>
+                    <div className="filter-group">
+                        <button
+                            type="button"
+                            className="btn-clear-filters w-100"
+                            onClick={() => {
+                                setFilterWarehouse("all");
+                                setStartDate("");
+                                setEndDate("");
+                            }}
+                        >
+                            <i className="bi bi-x-circle me-1"></i> Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {/* ── KPI Cards ── */}
             {stats && (
                 <div className="report-kpi-grid">
@@ -239,233 +356,254 @@ const Reports = ({ items = [] }) => {
                 ))}
             </div>
 
-            {/* ──────── SUMMARY TAB ──────── */}
-            {activeTab === "summary" && stats && (
-                <div className="report-section">
-                    <div className="report-two-col">
-                        {/* Monthly Additions chart */}
-                        <div className="report-card">
-                            <h6 className="rcard-title">
-                                <i className="bi bi-calendar3 text-primary me-2"></i>Monthly Item Additions
-                            </h6>
-                            <div className="bar-chart">
-                                {Object.entries(stats.monthly).map(([month, count]) => (
-                                    <div key={month} className="bar-group">
-                                        <div className="bar-track">
-                                            <div
-                                                className="bar-fill"
-                                                style={{ height: `${Math.round((count / Math.max(...Object.values(stats.monthly), 1)) * 100)}%` }}
-                                            />
-                                        </div>
-                                        <div className="bar-count">{count}</div>
-                                        <div className="bar-label">{month.split(" ")[0]}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Top 5 by value */}
-                        <div className="report-card">
-                            <h6 className="rcard-title">
-                                <i className="bi bi-trophy-fill text-primary me-2"></i>Top 5 Items by Value
-                            </h6>
-                            <div className="top-items-list">
-                                {stats.topByValue.map((item, idx) => (
-                                    <div key={item.id} className="top-item-row">
-                                        <span className={`top-rank rank-${idx + 1}`}>{idx + 1}</span>
-                                        <div className="top-item-info">
-                                            <span className="top-item-name">{item.name}</span>
-                                            <span className="top-item-cat">{item.category}</span>
-                                        </div>
-                                        <span className="top-item-val">₹{fmt(item.total)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+            {/* ──────── TABS CONTENT ──────── */}
+            {activeTab !== "movements" && filteredItems.length === 0 ? (
+                <div className="report-card py-5 text-center mt-3 animate-fade-in">
+                    <div style={{ textAlign: "center" }}>
+                        <i className="bi bi-funnel text-muted" style={{ fontSize: "3rem" }}></i>
+                        <h5 className="mt-3 fw-bold">No Matching Records Found</h5>
+                        <p className="text-muted" style={{ fontSize: "13px" }}>
+                            There are no inventory items matching the selected warehouse or purchase date filters.
+                        </p>
                     </div>
                 </div>
-            )}
-
-            {/* ──────── CATEGORY TAB ──────── */}
-            {activeTab === "category" && stats && (
-                <div className="report-section">
-                    <div className="report-card">
-                        <h6 className="rcard-title">
-                            <i className="bi bi-tags-fill text-primary me-2"></i>Inventory by Category
-                        </h6>
-                        <div className="report-table-wrapper">
-                            <table className="report-table">
-                                <thead>
-                                    <tr>
-                                        <th>Category</th>
-                                        <th>Items</th>
-                                        <th>Total Qty</th>
-                                        <th>Total Value</th>
-                                        <th>Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.entries(stats.byCat)
-                                        .sort((a, b) => b[1].value - a[1].value)
-                                        .map(([cat, d]) => (
-                                            <tr key={cat}>
-                                                <td><span className="cat-pill">{cat}</span></td>
-                                                <td>{d.count}</td>
-                                                <td>{fmtN(d.qty)}</td>
-                                                <td className="val-col">₹{fmt(d.value)}</td>
-                                                <td>
-                                                    <div className="share-bar-track">
-                                                        <div className="share-bar-fill" style={{
-                                                            width: `${Math.round((d.value / stats.totalValue) * 100)}%`
-                                                        }} />
-                                                    </div>
-                                                    <span className="share-pct">
-                                                        {((d.value / stats.totalValue) * 100).toFixed(1)}%
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ──────── WAREHOUSE TAB ──────── */}
-            {activeTab === "warehouse" && stats && (
-                <div className="report-section">
-                    <div className="report-card">
-                        <h6 className="rcard-title">
-                            <i className="bi bi-building-fill text-primary me-2"></i>Inventory by Warehouse
-                        </h6>
-                        <div className="wh-cards">
-                            {Object.entries(stats.byWh)
-                                .sort((a, b) => b[1].value - a[1].value)
-                                .map(([wh, d], idx) => (
-                                    <div key={wh} className="wh-stat-card">
-                                        <div className="wh-rank">{idx + 1}</div>
-                                        <div className="wh-info">
-                                            <div className="wh-name"><i className="bi bi-building-fill text-primary me-2"></i>{wh}</div>
-                                            <div className="wh-meta">{d.count} items · {fmtN(d.qty)} units</div>
-                                        </div>
-                                        <div className="wh-value">₹{fmt(d.value)}</div>
-                                        <div className="wh-bar-col">
-                                            <div className="share-bar-track">
-                                                <div className="share-bar-fill wh-bar" style={{
-                                                    width: `${Math.round((d.value / stats.totalValue) * 100)}%`
-                                                }} />
+            ) : (
+                <>
+                    {/* ──────── SUMMARY TAB ──────── */}
+                    {activeTab === "summary" && stats && (
+                        <div className="report-section">
+                            <div className="report-two-col">
+                                {/* Monthly Additions chart */}
+                                <div className="report-card">
+                                    <h6 className="rcard-title">
+                                        <i className="bi bi-calendar3 text-primary me-2"></i>Monthly Item Additions
+                                    </h6>
+                                    <div className="bar-chart">
+                                        {Object.entries(stats.monthly).map(([month, count]) => (
+                                            <div key={month} className="bar-group">
+                                                <div className="bar-track">
+                                                    <div
+                                                        className="bar-fill"
+                                                        style={{ height: `${Math.round((count / Math.max(...Object.values(stats.monthly), 1)) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <div className="bar-count">{count}</div>
+                                                <div className="bar-label">{month.split(" ")[0]}</div>
                                             </div>
-                                            <span className="share-pct">
-                                                {((d.value / stats.totalValue) * 100).toFixed(1)}%
-                                            </span>
-                                        </div>
+                                        ))}
                                     </div>
-                                ))
-                            }
-                        </div>
-                    </div>
-                </div>
-            )}
+                                </div>
 
-            {/* ──────── SUPPLIER TAB ──────── */}
-            {activeTab === "supplier" && stats && (
-                <div className="report-section">
-                    <div className="report-card">
-                        <h6 className="rcard-title">
-                            <i className="bi bi-truck text-primary me-2"></i>Inventory by Supplier
-                        </h6>
-                        <div className="report-table-wrapper">
-                            <table className="report-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Supplier</th>
-                                        <th>Items Supplied</th>
-                                        <th>Total Value</th>
-                                        <th>Value Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.entries(stats.bySupplier)
+                                {/* Top 5 by value */}
+                                <div className="report-card">
+                                    <h6 className="rcard-title">
+                                        <i className="bi bi-trophy-fill text-primary me-2"></i>Top 5 Items by Value
+                                    </h6>
+                                    <div className="top-items-list">
+                                        {stats.topByValue.map((item, idx) => (
+                                            <div key={item.id} className="top-item-row">
+                                                <span className={`top-rank rank-${idx + 1}`}>{idx + 1}</span>
+                                                <div className="top-item-info">
+                                                    <span className="top-item-name">{item.name}</span>
+                                                    <span className="top-item-cat">{item.category}</span>
+                                                </div>
+                                                <span className="top-item-val">₹{fmt(item.total)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ──────── CATEGORY TAB ──────── */}
+                    {activeTab === "category" && stats && (
+                        <div className="report-section">
+                            <div className="report-card">
+                                <h6 className="rcard-title">
+                                    <i className="bi bi-tags-fill text-primary me-2"></i>Inventory by Category
+                                </h6>
+                                <div className="report-table-wrapper">
+                                    <table className="report-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Category</th>
+                                                <th>Items</th>
+                                                <th>Total Qty</th>
+                                                <th>Total Value</th>
+                                                <th>Share</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(stats.byCat)
+                                                .sort((a, b) => b[1].value - a[1].value)
+                                                .map(([cat, d]) => (
+                                                    <tr key={cat}>
+                                                        <td><span className="cat-pill">{cat}</span></td>
+                                                        <td>{d.count}</td>
+                                                        <td>{fmtN(d.qty)}</td>
+                                                        <td className="val-col">₹{fmt(d.value)}</td>
+                                                        <td>
+                                                            <div className="share-bar-track">
+                                                                <div className="share-bar-fill" style={{
+                                                                    width: `${Math.round((d.value / stats.totalValue) * 100)}%`
+                                                                }} />
+                                                            </div>
+                                                            <span className="share-pct">
+                                                                {((d.value / stats.totalValue) * 100).toFixed(1)}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ──────── WAREHOUSE TAB ──────── */}
+                    {activeTab === "warehouse" && stats && (
+                        <div className="report-section">
+                            <div className="report-card">
+                                <h6 className="rcard-title">
+                                    <i className="bi bi-building-fill text-primary me-2"></i>Inventory by Warehouse
+                                </h6>
+                                <div className="wh-cards">
+                                    {Object.entries(stats.byWh)
                                         .sort((a, b) => b[1].value - a[1].value)
-                                        .map(([sup, d], idx) => (
-                                            <tr key={sup}>
-                                                <td>{idx + 1}</td>
-                                                <td><strong>{sup}</strong></td>
-                                                <td>{d.count}</td>
-                                                <td className="val-col">₹{fmt(d.value)}</td>
-                                                <td>
+                                        .map(([wh, d], idx) => (
+                                            <div key={wh} className="wh-stat-card">
+                                                <div className="wh-rank">{idx + 1}</div>
+                                                <div className="wh-info">
+                                                    <div className="wh-name"><i className="bi bi-building-fill text-primary me-2"></i>{wh}</div>
+                                                    <div className="wh-meta">{d.count} items · {fmtN(d.qty)} units</div>
+                                                </div>
+                                                <div className="wh-value">₹{fmt(d.value)}</div>
+                                                <div className="wh-bar-col">
                                                     <div className="share-bar-track">
-                                                        <div className="share-bar-fill sup-bar" style={{
+                                                        <div className="share-bar-fill wh-bar" style={{
                                                             width: `${Math.round((d.value / stats.totalValue) * 100)}%`
                                                         }} />
                                                     </div>
                                                     <span className="share-pct">
                                                         {((d.value / stats.totalValue) * 100).toFixed(1)}%
                                                     </span>
-                                                </td>
-                                            </tr>
+                                                </div>
+                                            </div>
                                         ))
                                     }
-                                </tbody>
-                            </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* ──────── ALL ITEMS TAB ──────── */}
-            {activeTab === "items" && (
-                <div className="report-section">
-                    <div className="report-card">
-                        <div className="rcard-title-row">
-                            <h6 className="rcard-title">
-                                <i className="bi bi-table text-primary me-2"></i>All Items ({items.length})
-                            </h6>
-                            <button className="rcard-export-btn" onClick={exportExcel}>
-                                <i className="bi bi-download me-1"></i> Export
-                            </button>
+                    {/* ──────── SUPPLIER TAB ──────── */}
+                    {activeTab === "supplier" && stats && (
+                        <div className="report-section">
+                            <div className="report-card">
+                                <h6 className="rcard-title">
+                                    <i className="bi bi-truck text-primary me-2"></i>Inventory by Supplier
+                                </h6>
+                                <div className="report-table-wrapper">
+                                    <table className="report-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Supplier</th>
+                                                <th>Items Supplied</th>
+                                                <th>Total Value</th>
+                                                <th>Value Share</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(stats.bySupplier)
+                                                .sort((a, b) => b[1].value - a[1].value)
+                                                .map(([sup, d], idx) => (
+                                                    <tr key={sup}>
+                                                        <td>{idx + 1}</td>
+                                                        <td><strong>{sup}</strong></td>
+                                                        <td>{d.count}</td>
+                                                        <td className="val-col">₹{fmt(d.value)}</td>
+                                                        <td>
+                                                            <div className="share-bar-track">
+                                                                <div className="share-bar-fill sup-bar" style={{
+                                                                    width: `${Math.round((d.value / stats.totalValue) * 100)}%`
+                                                                }} />
+                                                            </div>
+                                                            <span className="share-pct">
+                                                                {((d.value / stats.totalValue) * 100).toFixed(1)}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                        <div className="report-table-wrapper">
-                            <table className="report-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Name</th>
-                                        <th>Code</th>
-                                        <th>Category</th>
-                                        <th>Warehouse</th>
-                                        <th>Qty</th>
-                                        <th>Price</th>
-                                        <th>Total</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.map((item, idx) => (
-                                        <tr key={item.id}>
-                                            <td>{idx + 1}</td>
-                                            <td><strong>{item.name}</strong></td>
-                                            <td><code className="item-code-pill">{item.code || "—"}</code></td>
-                                            <td>{item.category}</td>
-                                            <td>{item.warehouse || "—"}</td>
-                                            <td className={Number(item.quantity) === 0 ? "qty-zero" : ""}>{item.quantity}</td>
-                                            <td>₹{fmt(item.price)}</td>
-                                            <td className="val-col">₹{fmt(item.total)}</td>
-                                            <td>
-                                                <span className={`item-status-pill ${item.status === "1" ? "sactive" : "sinactive"}`}>
-                                                    {item.status === "1" ? "Active" : "Inactive"}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    )}
+
+                    {/* ──────── ALL ITEMS TAB ──────── */}
+                    {activeTab === "items" && (
+                        <div className="report-section">
+                            <div className="report-card">
+                                <div className="rcard-title-row">
+                                    <h6 className="rcard-title">
+                                        <i className="bi bi-table text-primary me-2"></i>All Items ({filteredItems.length})
+                                    </h6>
+                                    <button className="rcard-export-btn" onClick={exportExcel}>
+                                        <i className="bi bi-download me-1"></i> Export
+                                    </button>
+                                </div>
+                                <div className="report-table-wrapper">
+                                    <table className="report-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Name</th>
+                                                <th>Code</th>
+                                                <th>Category</th>
+                                                <th>Warehouse</th>
+                                                <th>Qty</th>
+                                                <th>Price</th>
+                                                <th>Total</th>
+                                                <th>Status</th>
+                                                <th>Purchase Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredItems.map((item, idx) => (
+                                                <tr key={item.id}>
+                                                    <td>{idx + 1}</td>
+                                                    <td><strong>{item.name}</strong></td>
+                                                    <td><code className="item-code-pill">{item.code || "—"}</code></td>
+                                                    <td>{item.category}</td>
+                                                    <td>{item.warehouse || "—"}</td>
+                                                    <td className={Number(item.quantity) === 0 ? "qty-zero" : ""}>{item.quantity}</td>
+                                                    <td>₹{fmt(item.price)}</td>
+                                                    <td className="val-col">₹{fmt(item.total)}</td>
+                                                    <td>
+                                                        <span className={`item-status-pill ${item.status === "1" ? "sactive" : "sinactive"}`}>
+                                                            {item.status === "1" ? "Active" : "Inactive"}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {item.purchaseDate
+                                                            ? new Date(item.purchaseDate).toLocaleDateString("en-GB")
+                                                            : "—"}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    )}
+                </>
             )}
 
             {/* ──────── STOCK LEDGER TAB ──────── */}
@@ -476,7 +614,7 @@ const Reports = ({ items = [] }) => {
                             <h6 className="rcard-title">
                                 <i className="bi bi-clock-history text-primary me-2"></i>Stock Movement Ledger
                             </h6>
-                            {transactions.length > 0 && (
+                            {filteredTransactions.length > 0 && (
                                 <button className="rcard-export-btn btn-clear-ledger" onClick={() => {
                                     if (window.confirm("Are you sure you want to clear all transaction logs?")) {
                                         transactionService.clearTransactions();
@@ -488,8 +626,8 @@ const Reports = ({ items = [] }) => {
                             )}
                         </div>
                         <div className="report-table-wrapper">
-                            {transactions.length === 0 ? (
-                                <p className="text-muted text-center py-4">No stock movements logged yet. Adjust items or add stock to populate the ledger.</p>
+                            {filteredTransactions.length === 0 ? (
+                                <p className="text-muted text-center py-4">No stock movements logged for the selected warehouse scope.</p>
                             ) : (
                                 <table className="report-table">
                                     <thead>
@@ -505,7 +643,7 @@ const Reports = ({ items = [] }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {transactions.map(tx => (
+                                        {filteredTransactions.map(tx => (
                                             <tr key={tx.id}>
                                                 <td style={{ whiteSpace: "nowrap" }}>
                                                     {new Date(tx.timestamp).toLocaleString("en-IN", {
