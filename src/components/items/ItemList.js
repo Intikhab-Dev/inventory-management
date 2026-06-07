@@ -17,7 +17,10 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal }) => {
 
     React.useEffect(() => {
         const handleOutsideClick = (e) => {
-            setActiveDropdownId(null);
+            // Don't dismiss action dropdown if the click is inside one
+            if (!e.target.closest(".action-dropdown")) {
+                setActiveDropdownId(null);
+            }
             if (warehouseRef.current && !warehouseRef.current.contains(e.target)) {
                 setShowWarehouseDropdown(false);
             }
