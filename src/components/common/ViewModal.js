@@ -11,6 +11,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
   const [adjReason, setAdjReason] = useState("");
   const [adjNotes, setAdjNotes] = useState("");
   const [errors, setErrors] = useState({});
+  const [qrZoomed, setQrZoomed] = useState(false);
 
   useEffect(() => {
     setShowAdjust(false);
@@ -19,6 +20,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
     setAdjReason("");
     setAdjNotes("");
     setErrors({});
+    setQrZoomed(false);
   }, [item]);
 
   useEffect(() => {
@@ -218,10 +220,17 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
       <p>Modern Inventory Management System</p>
       <p>Authorized Stock slip receipt</p>
     </div>
-    <div class="slip-details">
-      <h2>Stock Slip</h2>
-      <p><strong>Code:</strong> ${item.code || 'N/A'}</p>
-      <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+    <div style="display: flex; align-items: center; gap: 20px;">
+      ${qrCodeUrl ? `
+      <div>
+        <img src="${qrCodeUrl}" alt="QR Code" style="width: 80px; height: 80px; border: 1px solid #cbd5e1; padding: 4px; border-radius: 6px; display: block;" />
+      </div>
+      ` : ""}
+      <div class="slip-details">
+        <h2>Stock Slip</h2>
+        <p><strong>Code:</strong> ${item.code || 'N/A'}</p>
+        <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+      </div>
     </div>
   </div>
 
@@ -334,8 +343,47 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
         <hr className="separator opacity-25" />
 
         <div className="modal-body-scroll">
-          <div className="modal-image-banner">
-            <img src={getProductImage(item)} alt={item.name} />
+          {/* Header Media Row: Product Image & Asset QR Code side-by-side */}
+          <div className="modal-media-row">
+            <div className="modal-media-card product-image-card">
+              <h5 className="media-card-title">
+                <i className="bi bi-image text-primary me-2"></i>
+                Product Image
+              </h5>
+              <div className="image-container-wrapper">
+                <img src={getProductImage(item)} alt={item.name} className="product-image-preview" />
+              </div>
+            </div>
+
+            <div className="modal-media-card qr-code-card">
+              <h5 className="media-card-title">
+                <i className="bi bi-qr-code text-primary me-2"></i>
+                Asset Tag QR Code
+              </h5>
+              <div className="qr-content-wrapper">
+                {qrCodeUrl ? (
+                  <div className="qr-image-container">
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Asset QR Code" 
+                      className="qr-img zoomable-qr" 
+                      onClick={() => setQrZoomed(true)}
+                      title="Click to zoom"
+                    />
+                    <a
+                      href={qrCodeUrl}
+                      download={`QR_${item.code || item.name}.png`}
+                      className="qr-download-btn"
+                    >
+                      <i className="bi bi-download me-1"></i>
+                      Download QR Tag
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-muted text-center py-2">Generating QR Code...</p>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="view-grid">
@@ -454,7 +502,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
                 setAdjReason("");
                 setErrors({});
                 setShowAdjust(false);
-              }} className="adjust-form animate-fade-in">
+              }} className="adjust-form animate-fade-in" noValidate>
                 
                 <div className="adj-row">
                   <div className="adj-group">
@@ -477,7 +525,6 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
                         if (errors.qty) setErrors(prev => { const n = {...prev}; delete n.qty; return n; });
                       }} 
                       className={`adj-input ${errors.qty ? "sinvalid" : ""}`} 
-                      required
                     />
                     {errors.qty && <span className="serror" style={{ fontSize: "11px", color: "#ef4444", marginTop: "2px", fontWeight: "600" }}>{errors.qty}</span>}
                   </div>
@@ -491,7 +538,6 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
                         if (errors.reason) setErrors(prev => { const n = {...prev}; delete n.reason; return n; });
                       }} 
                       className={`adj-select ${errors.reason ? "sinvalid" : ""}`}
-                      required
                     >
                       <option value="">-- Select Reason --</option>
                       {adjType === "IN" ? (
@@ -534,29 +580,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
             )}
           </div>
 
-          <div className="qr-code-section">
-            <h5 className="qr-title">
-              <i className="bi bi-qr-code text-primary me-2"></i>
-              Asset Tag QR Code
-            </h5>
-            <div className="qr-content-wrapper">
-              {qrCodeUrl ? (
-                <div className="qr-image-container">
-                  <img src={qrCodeUrl} alt="Asset QR Code" className="qr-img" />
-                  <a
-                    href={qrCodeUrl}
-                    download={`QR_${item.code || item.name}.png`}
-                    className="qr-download-btn"
-                  >
-                    <i className="bi bi-download me-1"></i>
-                    Download Asset Tag
-                  </a>
-                </div>
-              ) : (
-                <p className="text-muted text-center py-2">Generating QR Code...</p>
-              )}
-            </div>
-          </div>
+
 
         </div>
 
@@ -583,6 +607,28 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
           </button>
         </div>
       </div>
+
+      {qrZoomed && (
+        <div className="qr-zoom-overlay" onClick={() => setQrZoomed(false)}>
+          <div className="qr-zoom-modal" onClick={(e) => e.stopPropagation()}>
+            <span className="qr-zoom-close" onClick={() => setQrZoomed(false)}>✕</span>
+            <h5 className="qr-zoom-title">Asset Tag QR Code</h5>
+            <div className="qr-zoom-content">
+              <img src={qrCodeUrl} alt="Zoomed QR Code" className="qr-zoom-img" />
+              <p className="qr-zoom-code-text">Item Code: <strong>{item.code || "N/A"}</strong></p>
+              <p className="qr-zoom-help">Right-click or hold to save, or use the download button below.</p>
+              <a
+                href={qrCodeUrl}
+                download={`QR_${item.code || item.name}.png`}
+                className="qr-zoom-download-btn"
+              >
+                <i className="bi bi-download me-1"></i>
+                Download QR Code
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

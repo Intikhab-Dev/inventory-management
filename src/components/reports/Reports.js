@@ -529,7 +529,7 @@ const Reports = ({ items = [] }) => {
                                                     <span className="ledger-reason-pill">{tx.reason}</span>
                                                 </td>
                                                 <td>{tx.user}</td>
-                                                <td className="text-muted" style={{ fontSize: "12.5px" }}>{tx.notes || "—"}</td>
+                                                <td className="report-notes-col" style={{ fontSize: "12.5px" }}>{tx.notes || "—"}</td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -522,11 +522,9 @@ body.dark .dist-section h5 {
 .pie-chart-wrapper {
   position: relative;
   width: 100%;
-  max-width: 200px;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 100%;
+  height: 250px;
+  display: block;
 }
 
 /* ==========================================================================
@@ -811,6 +809,29 @@ body.dark .timeline-items.sidebar-timeline .timeline-content:hover {
 
 body.dark .timeline-items.sidebar-timeline .log-user {
   color: #f1f5f9;
+}
+
+.timeline-items.sidebar-timeline .flow-item-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4f46e5;
+  transition: color 0.2s ease;
+}
+
+body.dark .timeline-items.sidebar-timeline .flow-item-name {
+  color: #818cf8;
+}
+
+.timeline-items.sidebar-timeline .flow-item-notes {
+  font-size: 10.5px;
+  font-style: italic;
+  color: #64748b;
+  margin: 2px 0 0 0;
+  line-height: 1.3;
+}
+
+body.dark .timeline-items.sidebar-timeline .flow-item-notes {
+  color: #94a3b8;
 }
 
 .timeline-items.sidebar-timeline .action-tag {

@@ -603,3 +603,11 @@ body.dark .btn-clear-ledger:hover {
   background: #450a0a;
 }
 
+.report-notes-col {
+  color: #64748b;
+}
+
+body.dark .report-notes-col {
+  color: #94a3b8;
+}
+

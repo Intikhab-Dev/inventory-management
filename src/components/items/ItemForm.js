@@ -21,6 +21,27 @@ const loadList = (key, defaults) => {
     } catch { return defaults; }
 };
 
+// Reusable field component
+const Field = ({ label, name, type = "text", placeholder, required, readOnly, form, handleChange, errors, children }) => (
+    <div className="form-group">
+        <label className="form-label">
+            {label} {required && <span className="required-star">*</span>}
+        </label>
+        {children || (
+            <input
+                type={type}
+                name={name}
+                placeholder={placeholder}
+                value={form[name] ?? ""}
+                onChange={handleChange}
+                readOnly={readOnly}
+                className={`form-input ${errors[name] ? "is-invalid" : ""} ${readOnly ? "readonly-input" : ""}`}
+            />
+        )}
+        {errors[name] && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors[name]}</span>}
+    </div>
+);
+
 const ItemForm = ({ onAdd, editData }) => {
 
     const initialState = {
@@ -114,42 +135,47 @@ const ItemForm = ({ onAdd, editData }) => {
         }
     }, [form.quantity, form.price, form.tax]);
 
-    const validate = () => {
+    const generateItemCode = () => {
+        const rand = Math.floor(100000 + Math.random() * 900000);
+        return `ITM-${rand}`;
+    };
+
+    const validate = (formObj = form) => {
         const tempErrors = {};
 
-        if (!form.name || !form.name.trim())           tempErrors.name          = "Item Name is required.";
-        if (!form.warehouse || !form.warehouse.trim())  tempErrors.warehouse     = "Warehouse is required.";
-        if (!form.category_type)                        tempErrors.category_type = "Category Type is required.";
-        if (!form.category || !form.category.trim())    tempErrors.category      = "Category is required.";
+        if (!formObj.name || !formObj.name.trim())           tempErrors.name          = "Item Name is required.";
+        if (!formObj.warehouse || !formObj.warehouse.trim())  tempErrors.warehouse     = "Warehouse is required.";
+        if (!formObj.category_type)                        tempErrors.category_type = "Category Type is required.";
+        if (!formObj.category || !formObj.category.trim())    tempErrors.category      = "Category is required.";
 
-        if (form.quantity === "" || form.quantity === null || form.quantity === undefined) {
+        if (formObj.quantity === "" || formObj.quantity === null || formObj.quantity === undefined) {
             tempErrors.quantity = "Quantity is required.";
-        } else if (Number(form.quantity) < 0) {
+        } else if (Number(formObj.quantity) < 0) {
             tempErrors.quantity = "Quantity cannot be negative.";
         }
 
-        if (form.minThreshold !== "" && form.minThreshold !== null && form.minThreshold !== undefined) {
-            if (Number(form.minThreshold) < 0) tempErrors.minThreshold = "Threshold cannot be negative.";
+        if (formObj.minThreshold !== "" && formObj.minThreshold !== null && formObj.minThreshold !== undefined) {
+            if (Number(formObj.minThreshold) < 0) tempErrors.minThreshold = "Threshold cannot be negative.";
         }
 
-        if (!form.currency)                             tempErrors.currency  = "Currency is required.";
+        if (!formObj.currency)                             tempErrors.currency  = "Currency is required.";
 
-        if (form.price === "" || form.price === null || form.price === undefined) {
+        if (formObj.price === "" || formObj.price === null || formObj.price === undefined) {
             tempErrors.price = "Price is required.";
-        } else if (Number(form.price) < 0) {
+        } else if (Number(formObj.price) < 0) {
             tempErrors.price = "Price cannot be negative.";
         }
 
-        if (form.tax === "" || form.tax === null || form.tax === undefined) {
+        if (formObj.tax === "" || formObj.tax === null || formObj.tax === undefined) {
             tempErrors.tax = "Tax Amount is required.";
-        } else if (Number(form.tax) < 0) {
+        } else if (Number(formObj.tax) < 0) {
             tempErrors.tax = "Tax cannot be negative.";
         }
 
-        if (!form.supplier || !form.supplier.trim())    tempErrors.supplier     = "Supplier Name is required.";
-        if (!form.code || !form.code.trim())            tempErrors.code         = "Item Code is required.";
-        if (!form.status)                               tempErrors.status       = "Status is required.";
-        if (!form.purchaseDate)                         tempErrors.purchaseDate = "Purchase Date is required.";
+        if (!formObj.supplier || !formObj.supplier.trim())    tempErrors.supplier     = "Supplier Name is required.";
+        if (!formObj.code || !formObj.code.trim())            tempErrors.code         = "Item Code is required.";
+        if (!formObj.status)                               tempErrors.status       = "Status is required.";
+        if (!formObj.purchaseDate)                         tempErrors.purchaseDate = "Purchase Date is required.";
 
         setErrors(tempErrors);
         return Object.keys(tempErrors).length === 0;
@@ -169,29 +195,14 @@ const ItemForm = ({ onAdd, editData }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (validate()) onAdd(form);
+        const generatedCode = form.code || generateItemCode();
+        const updatedForm = { ...form, code: generatedCode };
+        if (validate(updatedForm)) {
+            onAdd(updatedForm);
+        }
     };
 
-    // Reusable field components for cleaner JSX
-    const Field = ({ label, name, type = "text", placeholder, required, readOnly, children }) => (
-        <div className="form-group">
-            <label className="form-label">
-                {label} {required && <span className="required-star">*</span>}
-            </label>
-            {children || (
-                <input
-                    type={type}
-                    name={name}
-                    placeholder={placeholder}
-                    value={form[name] ?? ""}
-                    onChange={handleChange}
-                    readOnly={readOnly}
-                    className={`form-input ${errors[name] ? "is-invalid" : ""} ${readOnly ? "readonly-input" : ""}`}
-                />
-            )}
-            {errors[name] && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors[name]}</span>}
-        </div>
-    );
+
 
     return (
         <div className="form-wrapper">
@@ -217,7 +228,7 @@ const ItemForm = ({ onAdd, editData }) => {
                         <i className="bi bi-info-circle text-primary me-2"></i> Basic Information
                     </div>
 
-                    <Field label="Item Name" name="name" placeholder="e.g. Office Chair" required />
+                    <Field label="Item Name" name="name" placeholder="e.g. Office Chair" required form={form} handleChange={handleChange} errors={errors} />
 
                     {/* Warehouse — from master list */}
                     <div className="form-group">
@@ -280,7 +291,7 @@ const ItemForm = ({ onAdd, editData }) => {
                         {errors.category && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.category}</span>}
                     </div>
 
-                    <Field label="Item Code" name="code" placeholder="e.g. ITM-001" required />
+
                     {/* Supplier — from master list */}
                     <div className="form-group">
                         <label className="form-label">
@@ -308,8 +319,8 @@ const ItemForm = ({ onAdd, editData }) => {
                         <i className="bi bi-box-seam text-primary me-2"></i> Stock & Pricing
                     </div>
 
-                    <Field label="Quantity" name="quantity" type="number" placeholder="0" required />
-                    <Field label="Low Stock Threshold" name="minThreshold" type="number" placeholder="5 (default)" />
+                    <Field label="Quantity" name="quantity" type="number" placeholder="0" required form={form} handleChange={handleChange} errors={errors} />
+                    <Field label="Low Stock Threshold" name="minThreshold" type="number" placeholder="5 (default)" form={form} handleChange={handleChange} errors={errors} />
 
                     <div className="form-group">
                         <label className="form-label">
@@ -336,8 +347,8 @@ const ItemForm = ({ onAdd, editData }) => {
                         {errors.currency && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.currency}</span>}
                     </div>
 
-                    <Field label="Price (per unit)" name="price" type="number" placeholder="0.00" required />
-                    <Field label="Tax Amount" name="tax" type="number" placeholder="0.00" required />
+                    <Field label="Price (per unit)" name="price" type="number" placeholder="0.00" required form={form} handleChange={handleChange} errors={errors} />
+                    <Field label="Tax Amount" name="tax" type="number" placeholder="0.00" required form={form} handleChange={handleChange} errors={errors} />
 
                     {/* Total — auto calculated */}
                     <div className="form-group">
@@ -376,7 +387,7 @@ const ItemForm = ({ onAdd, editData }) => {
                         {errors.status && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.status}</span>}
                     </div>
 
-                    <Field label="Purchase Date" name="purchaseDate" type="date" required />
+                    <Field label="Purchase Date" name="purchaseDate" type="date" required form={form} handleChange={handleChange} errors={errors} />
 
                     <div className="form-group">
                         <label className="form-label">Created Date</label>
@@ -393,7 +404,7 @@ const ItemForm = ({ onAdd, editData }) => {
                         <i className="bi bi-image text-primary me-2"></i> Media & Notes
                     </div>
 
-                    <Field label="Product Image URL (Optional)" name="imageUrl" placeholder="https://example.com/image.jpg" />
+                    <Field label="Product Image URL (Optional)" name="imageUrl" placeholder="https://example.com/image.jpg" form={form} handleChange={handleChange} errors={errors} />
 
                     <div className="form-group">
                         <label className="form-label">Upload Image / Invoice PDF <span className="size-hint">(Max 1.5 MB)</span></label>

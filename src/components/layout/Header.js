@@ -1,9 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./Header.css";
 
 const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle, sidebarCollapsed, setSidebarCollapsed }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("dismissed_alerts")) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Keep dismissed IDs in sync with current low-stock status to allow future alerts
+  useEffect(() => {
+    const lowStockIds = lowStockItems.map(item => item.id);
+    const activeDismissed = dismissedAlerts.filter(id => lowStockIds.includes(id));
+    if (activeDismissed.length !== dismissedAlerts.length) {
+      setDismissedAlerts(activeDismissed);
+      localStorage.setItem("dismissed_alerts", JSON.stringify(activeDismissed));
+    }
+  }, [lowStockItems]);
+
+  const visibleAlerts = useMemo(() => {
+    return lowStockItems.filter(item => !dismissedAlerts.includes(item.id));
+  }, [lowStockItems, dismissedAlerts]);
+
+  const handleDismissAlert = (e, itemId) => {
+    e.stopPropagation();
+    const updated = [...dismissedAlerts, itemId];
+    setDismissedAlerts(updated);
+    localStorage.setItem("dismissed_alerts", JSON.stringify(updated));
+  };
+
+  const handleDismissAll = (e) => {
+    e.stopPropagation();
+    const allIds = lowStockItems.map(item => item.id);
+    const updated = [...new Set([...dismissedAlerts, ...allIds])];
+    setDismissedAlerts(updated);
+    localStorage.setItem("dismissed_alerts", JSON.stringify(updated));
+  };
 
   const toggleDropdown = (e) => {
     e.stopPropagation();
@@ -81,37 +117,53 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
             onClick={toggleNotifications}
           >
             <i className="bi bi-bell"></i>
-            {lowStockItems.length > 0 && (
-              <span className="notification-badge">{lowStockItems.length}</span>
+            {visibleAlerts.length > 0 && (
+              <span className="notification-badge">{visibleAlerts.length}</span>
             )}
           </button>
 
           {showNotifications && (
             <div className="notifications-dropdown animate-fade-in">
-              <div className="dropdown-header-title">Notifications</div>
+              <div className="dropdown-header-title d-flex justify-content-between align-items-center">
+                <span>Alerts & Notifications</span>
+                {visibleAlerts.length > 0 && (
+                  <button className="dismiss-all-btn" onClick={handleDismissAll}>
+                    Dismiss All
+                  </button>
+                )}
+              </div>
               <div className="dropdown-divider"></div>
               <div className="notifications-list">
-                {lowStockItems.length === 0 ? (
+                {visibleAlerts.length === 0 ? (
                   <div className="notification-item empty">
                     <i className="bi bi-bell-slash text-muted me-2"></i>
                     No alerts
                   </div>
                 ) : (
-                  lowStockItems.map((item) => (
+                  visibleAlerts.map((item) => (
                     <div
                       key={item.id}
-                      className="notification-item alert-item"
+                      className="notification-item alert-item d-flex align-items-start justify-content-between"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onViewItem) onViewItem(item);
                         setShowNotifications(false);
                       }}
                     >
-                      <i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>
-                      <div className="notification-content">
-                        <span className="item-alert-name">{item.name}</span> is low on stock!
-                        <span className="item-alert-qty">{item.quantity} units left (Limit: {item.minThreshold || 5})</span>
+                      <div className="d-flex align-items-start text-start">
+                        <i className="bi bi-exclamation-triangle-fill text-danger me-2 mt-1"></i>
+                        <div className="notification-content">
+                          <span className="item-alert-name">{item.name}</span> is low on stock!
+                          <span className="item-alert-qty">{item.quantity} units left (Limit: {item.minThreshold || 5})</span>
+                        </div>
                       </div>
+                      <button
+                        className="dismiss-single-btn"
+                        onClick={(e) => handleDismissAlert(e, item.id)}
+                        title="Dismiss Alert"
+                      >
+                        <i className="bi bi-x"></i>
+                      </button>
                     </div>
                   ))
                 )}

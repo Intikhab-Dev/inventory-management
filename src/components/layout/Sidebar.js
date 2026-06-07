@@ -12,6 +12,8 @@ const Sidebar = ({ page, setPage, items = [], onAddClick, collapsed, setCollapse
         { id: "list",      label: "Item List",  icon: "bi-boxes" },
         { id: "suppliers", label: "Suppliers",  icon: "bi-truck" },
         { id: "stockout",  label: "Stock Out",  icon: "bi-arrow-up-right-circle" },
+        { id: "transfer",  label: "Stock Transfer", icon: "bi-arrow-left-right" },
+        { id: "ledger",    label: "Stock Ledger", icon: "bi-clock-history" },
         { id: "reports",   label: "Reports",    icon: "bi-bar-chart-line" },
         { id: "alerts",    label: "Low Stock",  icon: "bi-exclamation-triangle", badge: lowStockCount },
         { id: "settings",  label: "Settings",   icon: "bi-gear" }

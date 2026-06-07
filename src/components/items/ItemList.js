@@ -35,9 +35,6 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
     // ── Stock Log Modal ──
     const [stockLogItem, setStockLogItem] = React.useState(null);
 
-    // ── CSV Import ──
-    const csvInputRef = useRef(null);
-
     const warehouseRef = useRef(null);
     const statusRef = useRef(null);
 
@@ -185,48 +182,6 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
         setShowBulkConfirm(false);
     };
 
-    // ── CSV Import ──
-    const handleCSVImport = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const workbook = XLSX.read(ev.target.result, { type: "binary" });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet);
-                const imported = rows.map(row => ({
-                    id: Date.now() + Math.random(),
-                    name:         row["Item Name"]     || row["name"]     || "",
-                    category:     row["Category"]      || row["category"] || "",
-                    quantity:     row["Quantity"]       || row["quantity"] || 0,
-                    price:        row["Price (₹)"]      || row["price"]    || 0,
-                    tax:          row["Tax (₹)"]        || row["tax"]      || 0,
-                    total:        row["Total (₹)"]      || row["total"]    || 0,
-                    supplier:     row["Supplier"]       || row["supplier"] || "",
-                    code:         row["Item Code"]      || row["code"]     || "",
-                    status:       row["Status"] === "Active" ? "1" : (row["status"] || "1"),
-                    purchaseDate: row["Purchase Date"]  || row["purchaseDate"] || "",
-                    warehouse:    row["Warehouse"]      || row["warehouse"] || "",
-                    createdDate:  String(Date.now()),
-                })).filter(r => r.name);
-                if (imported.length === 0) { alert("No valid rows found in file."); return; }
-                const merged = [...items, ...imported];
-                // Save to localStorage directly — trigger re-render via parent
-                localStorage.setItem("items", JSON.stringify(merged));
-                alert(`✅ ${imported.length} item(s) imported! Please refresh or navigate away and back.`);
-            } catch {
-                alert("Failed to read file. Please ensure it is a valid Excel/CSV file.");
-            }
-        };
-        reader.readAsBinaryString(file);
-        e.target.value = ""; // reset
-    };
-
-    // ── Print ──
-    const handlePrint = () => {
-        window.print();
-    };
 
     // ── Excel Export ──
     const handleExportExcel = () => {
@@ -275,172 +230,174 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
     ];
 
     return (
-        <div className="list-container mt-5">
-
-            {/* ── Top toolbar: search + filters ── */}
-            <div className="filter-bar">
-                {/* 🔍 Search */}
-                <input
-                    type="text"
-                    className="search-input py-2"
-                    placeholder="Search item..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-
-                {/* Date From */}
-                <div className="date-filter-group">
-                    <label className="date-label">From</label>
-                    <input
-                        type="date"
-                        className="date-input"
-                        value={dateFrom}
-                        onChange={e => setDateFrom(e.target.value)}
-                    />
+        <div className="list-container">
+            {/* Header row with page-level actions */}
+            <div className="list-header-row">
+                <div className="list-header-left">
+                    <h3 className="list-title">Inventory Catalog</h3>
+                    <p className="list-subtitle">Manage, search, and track inventory stock items</p>
                 </div>
-
-                {/* Date To */}
-                <div className="date-filter-group">
-                    <label className="date-label">To</label>
-                    <input
-                        type="date"
-                        className="date-input"
-                        value={dateTo}
-                        onChange={e => setDateTo(e.target.value)}
-                    />
-                </div>
-
-                {/* Warehouse Custom Dropdown */}
-                <div className="custom-dropdown-container" ref={warehouseRef}>
-                    <button
-                        className={`custom-dropdown-btn ${showWarehouseDropdown ? "active" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); setShowWarehouseDropdown(!showWarehouseDropdown); setShowStatusDropdown(false); }}
-                    >
-                        <i className="bi bi-building me-2 text-primary"></i>
-                        <span>{warehouseFilter === "" ? "All Warehouses" : warehouseFilter}</span>
-                        <i className={`bi bi-chevron-down ms-2 arrow-icon ${showWarehouseDropdown ? "rotate" : ""}`}></i>
+                <div className="list-header-right">
+                    <button className="export-btn fw-bold" onClick={handleExportExcel}>
+                        <i className="bi bi-file-earmark-spreadsheet-fill"></i> Export Excel
                     </button>
-                    {showWarehouseDropdown && (
-                        <div className="custom-dropdown-list animate-slide-up">
-                            <div
-                                className={`custom-dropdown-item ${warehouseFilter === "" ? "selected" : ""}`}
-                                onClick={() => { setWarehouseFilter(""); setShowWarehouseDropdown(false); }}
-                            >All Warehouses</div>
-                            {warehouses.map((w) => (
-                                <div
-                                    key={w}
-                                    className={`custom-dropdown-item ${warehouseFilter === w ? "selected" : ""}`}
-                                    onClick={() => { setWarehouseFilter(w); setShowWarehouseDropdown(false); }}
-                                >{w}</div>
-                            ))}
+                    <button className="add-item-btn" onClick={() => onEdit(null)}>
+                        <i className="bi bi-plus-lg"></i> Add New Item
+                    </button>
+                </div>
+            </div>
+
+            {/* List Controls Panel Card */}
+            <div className="list-controls-card">
+                {/* ── Search & Filters Row ── */}
+                <div className="filter-bar">
+                    {/* 🔍 Search */}
+                    <div className="search-wrapper">
+                        <i className="bi bi-search search-icon"></i>
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Search items..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="filters-group">
+                        {/* Date From */}
+                        <div className="date-filter-group">
+                            <label className="date-label">From</label>
+                            <input
+                                type="date"
+                                className="date-input"
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                            />
                         </div>
-                    )}
+
+                        {/* Date To */}
+                        <div className="date-filter-group">
+                            <label className="date-label">To</label>
+                            <input
+                                type="date"
+                                className="date-input"
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Warehouse Custom Dropdown */}
+                        <div className="custom-dropdown-container" ref={warehouseRef}>
+                            <button
+                                className={`custom-dropdown-btn ${showWarehouseDropdown ? "active" : ""}`}
+                                onClick={(e) => { e.stopPropagation(); setShowWarehouseDropdown(!showWarehouseDropdown); setShowStatusDropdown(false); }}
+                            >
+                                <i className="bi bi-building me-2 text-primary"></i>
+                                <span>{warehouseFilter === "" ? "All Warehouses" : warehouseFilter}</span>
+                                <i className={`bi bi-chevron-down ms-2 arrow-icon ${showWarehouseDropdown ? "rotate" : ""}`}></i>
+                            </button>
+                            {showWarehouseDropdown && (
+                                <div className="custom-dropdown-list animate-slide-up">
+                                    <div
+                                        className={`custom-dropdown-item ${warehouseFilter === "" ? "selected" : ""}`}
+                                        onClick={() => { setWarehouseFilter(""); setShowWarehouseDropdown(false); }}
+                                    >All Warehouses</div>
+                                    {warehouses.map((w) => (
+                                        <div
+                                            key={w}
+                                            className={`custom-dropdown-item ${warehouseFilter === w ? "selected" : ""}`}
+                                            onClick={() => { setWarehouseFilter(w); setShowWarehouseDropdown(false); }}
+                                        >{w}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Status Custom Dropdown */}
+                        <div className="custom-dropdown-container" ref={statusRef}>
+                            <button
+                                className={`custom-dropdown-btn ${showStatusDropdown ? "active" : ""}`}
+                                onClick={(e) => { e.stopPropagation(); setShowStatusDropdown(!showStatusDropdown); setShowWarehouseDropdown(false); }}
+                            >
+                                <i className="bi bi-toggle-on me-2 text-primary"></i>
+                                <span>
+                                    {statusFilter === "" ? "All Status" : statusFilter === "1" ? "Active" : "Inactive"}
+                                </span>
+                                <i className={`bi bi-chevron-down ms-2 arrow-icon ${showStatusDropdown ? "rotate" : ""}`}></i>
+                            </button>
+                            {showStatusDropdown && (
+                                <div className="custom-dropdown-list animate-slide-up">
+                                    {[
+                                        { value: "", label: "All Status" },
+                                        { value: "1", label: "Active" },
+                                        { value: "0", label: "Inactive" },
+                                    ].map((opt) => (
+                                        <div
+                                            key={opt.value}
+                                            className={`custom-dropdown-item ${statusFilter === opt.value ? "selected" : ""}`}
+                                            onClick={() => { setStatusFilter(opt.value); setShowStatusDropdown(false); }}
+                                        >{opt.label}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Clear filters button (show only when any filter is active) */}
+                        {(search || statusFilter || warehouseFilter || dateFrom || dateTo) && (
+                            <button
+                                className="clear-filters-btn"
+                                onClick={() => {
+                                    setSearch(""); setStatusFilter(""); setWarehouseFilter("");
+                                    setDateFrom(""); setDateTo("");
+                                }}
+                                title="Clear all filters"
+                            >
+                                <i className="bi bi-x-circle me-1"></i> Clear
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {/* Status Custom Dropdown */}
-                <div className="custom-dropdown-container" ref={statusRef}>
-                    <button
-                        className={`custom-dropdown-btn ${showStatusDropdown ? "active" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); setShowStatusDropdown(!showStatusDropdown); setShowWarehouseDropdown(false); }}
-                    >
-                        <i className="bi bi-toggle-on me-2 text-primary"></i>
-                        <span>
-                            {statusFilter === "" ? "All Status" : statusFilter === "1" ? "Active" : "Inactive"}
+                {/* ── Toolbar Actions (Export / Selected Items) ── */}
+                <div className="toolbar-row">
+                    <div className="toolbar-left">
+                        {selectedIds.size > 0 && (
+                            <button className="bulk-delete-btn" onClick={() => setShowBulkConfirm(true)}>
+                                <i className="bi bi-trash"></i> Delete Selected ({selectedIds.size})
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="toolbar-right">
+                        <span className="results-count">
+                            Showing {paginatedItems.length} of {filteredItems.length} items
                         </span>
-                        <i className={`bi bi-chevron-down ms-2 arrow-icon ${showStatusDropdown ? "rotate" : ""}`}></i>
-                    </button>
-                    {showStatusDropdown && (
-                        <div className="custom-dropdown-list animate-slide-up">
-                            {[
-                                { value: "", label: "All Status" },
-                                { value: "1", label: "Active" },
-                                { value: "0", label: "Inactive" },
-                            ].map((opt) => (
-                                <div
-                                    key={opt.value}
-                                    className={`custom-dropdown-item ${statusFilter === opt.value ? "selected" : ""}`}
-                                    onClick={() => { setStatusFilter(opt.value); setShowStatusDropdown(false); }}
-                                >{opt.label}</div>
-                            ))}
-                        </div>
-                    )}
+                        <label className="per-page-label">
+                            Show&nbsp;
+                            <select
+                                className="per-page-select"
+                                value={itemsPerPage}
+                                onChange={e => setItemsPerPage(Number(e.target.value))}
+                            >
+                                {ITEMS_PER_PAGE_OPTIONS.map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                            &nbsp;per page
+                        </label>
+                    </div>
                 </div>
 
-                {/* Clear filters button (show only when any filter is active) */}
-                {(search || statusFilter || warehouseFilter || dateFrom || dateTo) && (
-                    <button
-                        className="clear-filters-btn"
-                        onClick={() => {
-                            setSearch(""); setStatusFilter(""); setWarehouseFilter("");
-                            setDateFrom(""); setDateTo("");
-                        }}
-                        title="Clear all filters"
-                    >
-                        <i className="bi bi-x-circle me-1"></i> Clear
-                    </button>
+                {/* ── Bulk Delete Confirmation ── */}
+                {showBulkConfirm && (
+                    <div className="bulk-confirm-bar mt-3">
+                        <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                        <span>Delete <strong>{selectedIds.size}</strong> selected item{selectedIds.size > 1 ? "s" : ""}? This cannot be undone.</span>
+                        <button className="bulk-confirm-yes ms-auto" onClick={handleBulkDelete}>Yes, Delete</button>
+                        <button className="bulk-confirm-no" onClick={() => setShowBulkConfirm(false)}>Cancel</button>
+                    </div>
                 )}
             </div>
-
-            {/* ── Bottom toolbar: export + bulk delete + per-page ── */}
-            <div className="toolbar-row">
-                <div className="toolbar-left">
-                    <button className="export-btn fw-bold" onClick={handleExportExcel}>
-                        <i className="bi bi-file-earmark-spreadsheet"></i> Download Excel
-                    </button>
-
-                    {/* CSV Import — hidden for now */}
-                    {/* <button className="import-btn fw-bold" onClick={() => csvInputRef.current.click()}>
-                        <i className="bi bi-upload"></i> Import CSV
-                    </button> */}
-                    <input
-                        ref={csvInputRef}
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        style={{ display: "none" }}
-                        onChange={handleCSVImport}
-                    />
-
-                    {/* Print — hidden for now */}
-                    {/* <button className="print-btn fw-bold" onClick={handlePrint}>
-                        <i className="bi bi-printer"></i> Print
-                    </button> */}
-
-                    {selectedIds.size > 0 && (
-                        <button className="bulk-delete-btn" onClick={() => setShowBulkConfirm(true)}>
-                            <i className="bi bi-trash"></i> Delete Selected ({selectedIds.size})
-                        </button>
-                    )}
-                </div>
-
-                <div className="toolbar-right">
-                    <span className="results-count">
-                        {filteredItems.length} result{filteredItems.length !== 1 ? "s" : ""}
-                    </span>
-                    <label className="per-page-label">
-                        Show&nbsp;
-                        <select
-                            className="per-page-select"
-                            value={itemsPerPage}
-                            onChange={e => setItemsPerPage(Number(e.target.value))}
-                        >
-                            {ITEMS_PER_PAGE_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n}</option>
-                            ))}
-                        </select>
-                        &nbsp;per page
-                    </label>
-                </div>
-            </div>
-
-            {/* ── Bulk Delete Confirmation ── */}
-            {showBulkConfirm && (
-                <div className="bulk-confirm-bar">
-                    <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                    Delete <strong>{selectedIds.size}</strong> selected item{selectedIds.size > 1 ? "s" : ""}? This cannot be undone.
-                    <button className="bulk-confirm-yes" onClick={handleBulkDelete}>Yes, Delete</button>
-                    <button className="bulk-confirm-no" onClick={() => setShowBulkConfirm(false)}>Cancel</button>
-                </div>
-            )}
 
             {/* Only the table itself is inside the horizontal scroll container */}
             <div className="table-wrapper">
@@ -571,15 +528,15 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                                         <i className="bi bi-pencil"></i> Edit
                                                     </button>
 
-                                                    {onDuplicate && (
+                                                    {/* {onDuplicate && (
                                                         <button type="button" className="dropdown-item duplicate" onClick={() => { setActiveDropdownId(null); onDuplicate(item); }}>
                                                             <i className="bi bi-copy"></i> Duplicate
                                                         </button>
-                                                    )}
+                                                    )} */}
 
-                                                    <button type="button" className="dropdown-item stock-log" onClick={() => { setActiveDropdownId(null); setStockLogItem(item); }}>
+                                                    {/* <button type="button" className="dropdown-item stock-log" onClick={() => { setActiveDropdownId(null); setStockLogItem(item); }}>
                                                         <i className="bi bi-arrow-left-right"></i> Stock Log
-                                                    </button>
+                                                    </button> */}
 
                                                     <div className="dropdown-divider"></div>
 

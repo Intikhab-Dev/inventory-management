@@ -15,6 +15,8 @@ import LowStockAlert from "./components/alerts/LowStockAlert";
 import SupplierManagement from "./components/suppliers/SupplierManagement";
 import Reports from "./components/reports/Reports";
 import StockOut from "./components/stockout/StockOut";
+import StockLedger from "./components/ledger/StockLedger";
+import StockTransfer from "./components/transfer/StockTransfer";
 
 // Services
 import { authService } from "./services/authService";
@@ -26,7 +28,9 @@ import "./App.css";
 function App() {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState(() => {
+    return localStorage.getItem("current_page") || "dashboard";
+  });
   const [showModal, setShowModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleteName, setDeleteName] = useState("");
@@ -50,6 +54,10 @@ function App() {
     }
     setCheckingAuth(false);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("current_page", page);
+  }, [page]);
 
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -342,6 +350,91 @@ function App() {
     showToast("Stock dispatched successfully");
   };
 
+  // 🔹 Stock Transfer Handler
+  const handleStockTransfer = (itemId, sourceWh, targetWh, qty, notes) => {
+    const qtyNum = Number(qty);
+    if (isNaN(qtyNum) || qtyNum <= 0) return;
+
+    const sourceItem = items.find(i => i.id === itemId);
+    if (!sourceItem) return;
+
+    // Decrement source item stock
+    const updatedItems = items.map(i => {
+      if (i.id === itemId) {
+        const nextQty = Math.max(0, (Number(i.quantity) || 0) - qtyNum);
+        return {
+          ...i,
+          quantity: nextQty,
+          total: nextQty * (Number(i.price) || 0)
+        };
+      }
+      return i;
+    });
+
+    // Check if item with matching code already exists in target warehouse
+    const targetIdx = updatedItems.findIndex(
+      i => i.code === sourceItem.code &&
+      (i.warehouse || "").trim().toLowerCase() === targetWh.trim().toLowerCase()
+    );
+
+    let finalItems = [...updatedItems];
+    if (targetIdx !== -1) {
+      // Exists in target warehouse -> increment target item stock
+      const targetItem = finalItems[targetIdx];
+      const nextQty = (Number(targetItem.quantity) || 0) + qtyNum;
+      finalItems[targetIdx] = {
+        ...targetItem,
+        quantity: nextQty,
+        total: nextQty * (Number(targetItem.price) || 0)
+      };
+    } else {
+      // Does not exist -> create new row duplicating details but with target warehouse & transfer quantity
+      const newItem = {
+        ...sourceItem,
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        warehouse: targetWh.trim(),
+        quantity: qtyNum,
+        total: qtyNum * (Number(sourceItem.price) || 0),
+        createdDate: String(Date.now())
+      };
+      finalItems.push(newItem);
+    }
+
+    saveItems(finalItems);
+    setItems(finalItems);
+
+    // Log activity
+    activityService.addLog(
+      "update_item",
+      `Transferred ${qtyNum} units of "${sourceItem.name}" from "${sourceWh}" to "${targetWh}"`,
+      currentUser?.name
+    );
+
+    // Log ledger transactions (OUT for source, IN for target)
+    transactionService.addTransaction({
+      itemId: sourceItem.code,
+      itemName: sourceItem.name,
+      type: "OUT",
+      qty: qtyNum,
+      reason: `Transfer OUT (to ${targetWh})`,
+      notes: notes || `Stock transfer to ${targetWh}`,
+      user: currentUser?.name || "System"
+    });
+
+    transactionService.addTransaction({
+      itemId: sourceItem.code,
+      itemName: sourceItem.name,
+      type: "IN",
+      qty: qtyNum,
+      reason: `Transfer IN (from ${sourceWh})`,
+      notes: notes || `Stock transfer from ${sourceWh}`,
+      user: currentUser?.name || "System"
+    });
+
+    showToast("Stock transfer completed successfully");
+    setPage("list");
+  };
+
   // 🔹 Delete Item
   const handleDelete = (id) => {
     const deletedItem = items.find(item => item.id === id);
@@ -422,6 +515,10 @@ function App() {
         return "Supplier Directory";
       case "stockout":
         return "Stock Out (Dispatch)";
+      case "transfer":
+        return "Stock Warehouse Transfer";
+      case "ledger":
+        return "Stock Transaction Ledger";
       case "reports":
         return "Reports & Analytics";
       case "alerts":
@@ -464,7 +561,7 @@ function App() {
 
         <div className="page-content">
           {/* 🔹 Pages */}
-          {page === "dashboard" && <Dashboard items={items} />}
+          {page === "dashboard" && <Dashboard items={items} darkMode={darkMode} />}
 
           {page === "list" && (
             <ItemList
@@ -496,6 +593,14 @@ function App() {
 
           {page === "stockout" && (
             <StockOut items={items} onStockOut={handleStockOut} />
+          )}
+
+          {page === "transfer" && (
+            <StockTransfer items={items} onTransfer={handleStockTransfer} />
+          )}
+
+          {page === "ledger" && (
+            <StockLedger />
           )}
 
           {page === "reports" && <Reports items={items} />}

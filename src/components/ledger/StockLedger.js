@@ -1,0 +1,232 @@
+import React, { useState, useEffect, useMemo } from "react";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { transactionService } from "../../services/transactionService";
+import "./StockLedger.css";
+
+const StockLedger = () => {
+    const [transactions, setTransactions] = useState([]);
+    const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState(""); // "" | "IN" | "OUT"
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+
+    // Load ledger logs on mount
+    const fetchTransactions = () => {
+        setTransactions(transactionService.getTransactions());
+    };
+
+    useEffect(() => {
+        fetchTransactions();
+    }, []);
+
+    // ── Filter Log List ──
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(tx => {
+            const matchesSearch =
+                tx.itemName?.toLowerCase().includes(search.toLowerCase()) ||
+                tx.itemId?.toLowerCase().includes(search.toLowerCase()) ||
+                tx.reason?.toLowerCase().includes(search.toLowerCase()) ||
+                tx.user?.toLowerCase().includes(search.toLowerCase());
+
+            const matchesType = typeFilter ? tx.type === typeFilter : true;
+
+            let matchesDate = true;
+            if (dateFrom || dateTo) {
+                const txDate = new Date(tx.timestamp);
+                if (dateFrom) {
+                    const fromLimit = new Date(dateFrom);
+                    fromLimit.setHours(0, 0, 0, 0);
+                    matchesDate = matchesDate && txDate >= fromLimit;
+                }
+                if (dateTo) {
+                    const toLimit = new Date(dateTo);
+                    toLimit.setHours(23, 59, 59, 999);
+                    matchesDate = matchesDate && txDate <= toLimit;
+                }
+            }
+
+            return matchesSearch && matchesType && matchesDate;
+        });
+    }, [transactions, search, typeFilter, dateFrom, dateTo]);
+
+    // ── Clear Ledger Log ──
+    const handleClearLedger = () => {
+        if (window.confirm("⚠️ Are you sure you want to clear all transaction logs? This action is permanent!")) {
+            transactionService.clearTransactions();
+            setTransactions([]);
+        }
+    };
+
+    // ── Export Ledger to Excel ──
+    const handleExportExcel = () => {
+        if (filteredTransactions.length === 0) {
+            alert("No ledger data to export.");
+            return;
+        }
+
+        const dataToExport = filteredTransactions.map((tx, idx) => ({
+            "S.No.": idx + 1,
+            "Timestamp": new Date(tx.timestamp).toLocaleString("en-IN"),
+            "Item Code": tx.itemId,
+            "Item Name": tx.itemName,
+            "Type": tx.type === "IN" ? "IN (Stock In)" : "OUT (Stock Out)",
+            "Quantity": tx.qty,
+            "Reason": tx.reason,
+            "Operator": tx.user,
+            "Notes": tx.notes || ""
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Ledger");
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const file = new Blob([excelBuffer], { type: "application/octet-stream" });
+        saveAs(file, `Stock_Ledger_${new Date().toISOString().split("T")[0]}.xlsx`);
+    };
+
+    return (
+        <div className="ledger-page mt-5">
+            {/* Header section */}
+            <div className="ledger-header">
+                <div>
+                    <h2 className="ledger-title">
+                        <i className="bi bi-clock-history text-primary me-2"></i>
+                        Stock Ledger
+                    </h2>
+                    <p className="ledger-subtitle">Real-time audit log of all inward and outward inventory transactions.</p>
+                </div>
+                <div className="ledger-actions">
+                    <button className="ledger-export-btn" onClick={handleExportExcel}>
+                        <i className="bi bi-file-earmark-spreadsheet me-1"></i> Export Ledger
+                    </button>
+                    {transactions.length > 0 && (
+                        <button className="ledger-clear-btn" onClick={handleClearLedger}>
+                            <i className="bi bi-trash-fill me-1"></i> Clear Ledger
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Filter controls bar */}
+            <div className="ledger-filter-bar">
+                <div className="ledger-search-box">
+                    <i className="bi bi-search search-icon"></i>
+                    <input
+                        type="text"
+                        className="ledger-filter-input search"
+                        placeholder="Search item name, code, user..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                </div>
+
+                <div className="ledger-filter-group">
+                    <label>Type</label>
+                    <select
+                        className="ledger-filter-select"
+                        value={typeFilter}
+                        onChange={e => setTypeFilter(e.target.value)}
+                    >
+                        <option value="">All Types</option>
+                        <option value="IN">📥 Inward (Stock In)</option>
+                        <option value="OUT">📤 Outward (Stock Out)</option>
+                    </select>
+                </div>
+
+                <div className="ledger-filter-group">
+                    <label>From</label>
+                    <input
+                        type="date"
+                        className="ledger-filter-input date"
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
+                    />
+                </div>
+
+                <div className="ledger-filter-group">
+                    <label>To</label>
+                    <input
+                        type="date"
+                        className="ledger-filter-input date"
+                        value={dateTo}
+                        onChange={e => setDateTo(e.target.value)}
+                    />
+                </div>
+
+                {(search || typeFilter || dateFrom || dateTo) && (
+                    <button
+                        className="ledger-clear-filters"
+                        onClick={() => {
+                            setSearch("");
+                            setTypeFilter("");
+                            setDateFrom("");
+                            setDateTo("");
+                        }}
+                    >
+                        <i className="bi bi-x-circle me-1"></i> Clear Filters
+                    </button>
+                )}
+            </div>
+
+            {/* Table section */}
+            <div className="ledger-table-wrapper card-box">
+                {filteredTransactions.length === 0 ? (
+                    <div className="ledger-empty">
+                        <i className="bi bi-clock-history text-muted"></i>
+                        <h5>No transactions match the current filters.</h5>
+                        <p>Adjust your search filters or record some stock actions.</p>
+                    </div>
+                ) : (
+                    <table className="ledger-table table-responsive">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Item Code</th>
+                                <th>Item Name</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Reason</th>
+                                <th>Operator</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredTransactions.map(tx => (
+                                <tr key={tx.id}>
+                                    <td className="time-col">
+                                        {new Date(tx.timestamp).toLocaleString("en-IN", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            hour12: true
+                                        })}
+                                    </td>
+                                    <td><code className="ledger-code-pill">{tx.itemId || "—"}</code></td>
+                                    <td><strong className="ledger-item-name">{tx.itemName}</strong></td>
+                                    <td>
+                                        <span className={`ledger-badge ${tx.type === "IN" ? "lin" : "lout"}`}>
+                                            {tx.type === "IN" ? "📥 INWARD" : "📤 OUTWARD"}
+                                        </span>
+                                    </td>
+                                    <td className={`qty-col ${tx.type === "IN" ? "text-success" : "text-danger"}`}>
+                                        <strong>{tx.type === "IN" ? "+" : "-"}{tx.qty}</strong>
+                                    </td>
+                                    <td>
+                                        <span className="ledger-reason-pill">{tx.reason}</span>
+                                    </td>
+                                    <td className="operator-col">{tx.user}</td>
+                                    <td className="notes-col">{tx.notes || "—"}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default StockLedger;
