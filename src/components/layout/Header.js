@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./Header.css";
 
-const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem }) => {
+const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle, sidebarCollapsed, setSidebarCollapsed }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -39,11 +39,21 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
     <header className="header">
       {/* 🔹 LEFT */}
       <div className="header-left">
-        <div className="logo">IMS</div>
+        <button
+          type="button"
+          className="sidebar-toggle-btn-header"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSidebarCollapsed(!sidebarCollapsed);
+          }}
+          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          <i className={`bi ${sidebarCollapsed ? "bi-list" : "bi-x-lg"}`}></i>
+        </button>
 
         <div className="title-box">
-          <h2>Inventory</h2>
-          <span>Management System</span>
+          <h2>{pageTitle || "Dashboard Overview"}</h2>
+          <span>IMS Control Panel</span>
         </div>
       </div>
 
@@ -110,9 +120,7 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
           )}
         </div>
 
-        <div className="icon-btn" title="Settings">
-          <i className="bi bi-gear"></i>
-        </div>
+
 
         {currentUser && (
           <div className="user-box-container">

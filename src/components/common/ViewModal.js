@@ -3,8 +3,23 @@ import QRCode from "qrcode";
 import { getProductImage } from "../../services/imageService";
 import "./ViewModal.css";
 
-const ViewModal = ({ show, onClose, item }) => {
+const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [adjType, setAdjType] = useState("IN"); // IN or OUT
+  const [adjQty, setAdjQty] = useState("");
+  const [adjReason, setAdjReason] = useState("");
+  const [adjNotes, setAdjNotes] = useState("");
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    setShowAdjust(false);
+    setAdjType("IN");
+    setAdjQty("");
+    setAdjReason("");
+    setAdjNotes("");
+    setErrors({});
+  }, [item]);
 
   useEffect(() => {
     if (!item) return;
@@ -395,6 +410,128 @@ const ViewModal = ({ show, onClose, item }) => {
               <p className="description-text">{item.description || "No description provided."}</p>
             </div>
 
+          </div>
+
+          {/* ⚡ Stock Adjustment Panel */}
+          <div className="stock-adjustment-section">
+            <button 
+              type="button" 
+              className={`adjust-toggle-btn ${showAdjust ? "active" : ""}`}
+              onClick={() => setShowAdjust(!showAdjust)}
+            >
+              <i className="bi bi-lightning-charge-fill me-1"></i>
+              {showAdjust ? "Hide Adjustment Panel" : "⚡ Quick Stock Adjustment"}
+            </button>
+
+            {showAdjust && (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const tempErrors = {};
+                const qty = Number(adjQty);
+                
+                if (!adjQty) {
+                  tempErrors.qty = "Quantity is required.";
+                } else if (isNaN(qty) || qty <= 0) {
+                  tempErrors.qty = "Quantity must be a positive number.";
+                } else if (adjType === "OUT" && qty > Number(item.quantity || 0)) {
+                  tempErrors.qty = `Cannot dispatch more than current stock (${item.quantity}).`;
+                }
+
+                if (!adjReason) {
+                  tempErrors.reason = "Please select a reason.";
+                }
+
+                if (Object.keys(tempErrors).length > 0) {
+                  setErrors(tempErrors);
+                  return;
+                }
+
+                onAdjustStock && onAdjustStock(item.id, qty, adjType, adjReason, adjNotes);
+                
+                // Reset form fields
+                setAdjQty("");
+                setAdjNotes("");
+                setAdjReason("");
+                setErrors({});
+                setShowAdjust(false);
+              }} className="adjust-form animate-fade-in">
+                
+                <div className="adj-row">
+                  <div className="adj-group">
+                    <label>Action Type</label>
+                    <select value={adjType} onChange={e => { setAdjType(e.target.value); setAdjReason(""); setErrors({}); }} className="adj-select">
+                      <option value="IN">📥 Add Stock (Restock)</option>
+                      <option value="OUT">📤 Remove Stock (Dispatch)</option>
+                    </select>
+                  </div>
+
+                  <div className="adj-group">
+                    <label>Quantity <span className="req">*</span></label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      placeholder="e.g. 10" 
+                      value={adjQty} 
+                      onChange={e => {
+                        setAdjQty(e.target.value);
+                        if (errors.qty) setErrors(prev => { const n = {...prev}; delete n.qty; return n; });
+                      }} 
+                      className={`adj-input ${errors.qty ? "sinvalid" : ""}`} 
+                      required
+                    />
+                    {errors.qty && <span className="serror" style={{ fontSize: "11px", color: "#ef4444", marginTop: "2px", fontWeight: "600" }}>{errors.qty}</span>}
+                  </div>
+
+                  <div className="adj-group">
+                    <label>Reason <span className="req">*</span></label>
+                    <select 
+                      value={adjReason} 
+                      onChange={e => {
+                        setAdjReason(e.target.value);
+                        if (errors.reason) setErrors(prev => { const n = {...prev}; delete n.reason; return n; });
+                      }} 
+                      className={`adj-select ${errors.reason ? "sinvalid" : ""}`}
+                      required
+                    >
+                      <option value="">-- Select Reason --</option>
+                      {adjType === "IN" ? (
+                        <>
+                          <option value="Purchase / Restock">Purchase / Restock</option>
+                          <option value="Customer Return">Customer Return</option>
+                          <option value="Inventory Correction">Inventory Correction</option>
+                          <option value="Promo / Gift">Promo / Gift</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Sales / Dispatch">Sales / Dispatch</option>
+                          <option value="Damaged / Broken">Damaged / Broken</option>
+                          <option value="Stolen / Lost">Stolen / Lost</option>
+                          <option value="Expired Stock">Expired Stock</option>
+                          <option value="Promo / Gift">Promo / Gift</option>
+                          <option value="Inventory Correction">Inventory Correction</option>
+                        </>
+                      )}
+                    </select>
+                    {errors.reason && <span className="serror" style={{ fontSize: "11px", color: "#ef4444", marginTop: "2px", fontWeight: "600" }}>{errors.reason}</span>}
+                  </div>
+                </div>
+
+                <div className="adj-group full">
+                  <label>Adjustment Notes (Optional)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Delivered from main vendor invoice #482" 
+                    value={adjNotes} 
+                    onChange={e => setAdjNotes(e.target.value)} 
+                    className="adj-input"
+                  />
+                </div>
+
+                <div className="adj-actions">
+                  <button type="submit" className="adj-submit-btn">Apply Adjustment</button>
+                </div>
+              </form>
+            )}
           </div>
 
           <div className="qr-code-section">

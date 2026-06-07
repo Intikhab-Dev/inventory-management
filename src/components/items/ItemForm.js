@@ -1,6 +1,26 @@
 import React, { useState, useEffect } from "react";
 import "./ItemForm.css";
 
+// Read master lists from Settings (saved in localStorage)
+const STORAGE_KEY_CAT = "customCategories";
+const STORAGE_KEY_WH  = "customWarehouses";
+const STORAGE_KEY_SUP = "suppliers";
+
+const DEFAULT_CATEGORIES = ["Electronics", "Furniture", "Stationery", "Tools", "Clothing", "Food", "Medical", "Other"];
+const DEFAULT_WAREHOUSES  = ["Main Warehouse", "Secondary Warehouse", "Cold Storage"];
+const DEFAULT_SUPPLIERS = [
+    { id: 1, name: "ABC Traders", status: "active" },
+    { id: 2, name: "XYZ Solutions", status: "active" },
+    { id: 3, name: "Global Exports", status: "active" }
+];
+
+const loadList = (key, defaults) => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(key));
+        return Array.isArray(saved) && saved.length > 0 ? saved : defaults;
+    } catch { return defaults; }
+};
+
 const ItemForm = ({ onAdd, editData }) => {
 
     const initialState = {
@@ -27,20 +47,34 @@ const ItemForm = ({ onAdd, editData }) => {
     const [form, setForm] = useState(initialState);
     const [errors, setErrors] = useState({});
     const [fileError, setFileError] = useState("");
+    const [categories, setCategories] = useState([]);
+    const [warehouses, setWarehouses]  = useState([]);
+    const [suppliers, setSuppliers]   = useState([]);
+
+    // Load master lists on mount
+    useEffect(() => {
+        setCategories(loadList(STORAGE_KEY_CAT, DEFAULT_CATEGORIES));
+        setWarehouses(loadList(STORAGE_KEY_WH,  DEFAULT_WAREHOUSES));
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_SUP));
+            setSuppliers(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SUPPLIERS);
+        } catch {
+            setSuppliers(DEFAULT_SUPPLIERS);
+        }
+    }, []);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         setFileError("");
-        
+
         if (!file) {
             setForm((prev) => ({ ...prev, fileAttachment: null }));
             return;
         }
 
-        // Limit file size to 1.5 MB
         if (file.size > 1.5 * 1024 * 1024) {
             setFileError("File is too large. Maximum size is 1.5 MB.");
-            e.target.value = ""; // Clear file input
+            e.target.value = "";
             setForm((prev) => ({ ...prev, fileAttachment: null }));
             return;
         }
@@ -71,28 +105,23 @@ const ItemForm = ({ onAdd, editData }) => {
 
     useEffect(() => {
         const quantity = Number(form.quantity) || 0;
-        const price = Number(form.price) || 0;
-        const tax = Number(form.tax) || 0;
-
-        const total = (quantity * price) + tax;
+        const price    = Number(form.price)    || 0;
+        const tax      = Number(form.tax)      || 0;
+        const total    = (quantity * price) + tax;
 
         if (form.total !== total) {
-            setForm((prev) => ({
-                ...prev,
-                total,
-            }));
+            setForm((prev) => ({ ...prev, total }));
         }
     }, [form.quantity, form.price, form.tax]);
 
-    // Validate form fields
     const validate = () => {
         const tempErrors = {};
-        
-        if (!form.name || !form.name.trim()) tempErrors.name = "Item Name is required.";
-        if (!form.warehouse || !form.warehouse.trim()) tempErrors.warehouse = "Warehouse is required.";
-        if (!form.category_type) tempErrors.category_type = "Category Type is required.";
-        if (!form.category || !form.category.trim()) tempErrors.category = "Category is required.";
-        
+
+        if (!form.name || !form.name.trim())           tempErrors.name          = "Item Name is required.";
+        if (!form.warehouse || !form.warehouse.trim())  tempErrors.warehouse     = "Warehouse is required.";
+        if (!form.category_type)                        tempErrors.category_type = "Category Type is required.";
+        if (!form.category || !form.category.trim())    tempErrors.category      = "Category is required.";
+
         if (form.quantity === "" || form.quantity === null || form.quantity === undefined) {
             tempErrors.quantity = "Quantity is required.";
         } else if (Number(form.quantity) < 0) {
@@ -100,12 +129,10 @@ const ItemForm = ({ onAdd, editData }) => {
         }
 
         if (form.minThreshold !== "" && form.minThreshold !== null && form.minThreshold !== undefined) {
-            if (Number(form.minThreshold) < 0) {
-                tempErrors.minThreshold = "Threshold cannot be negative.";
-            }
+            if (Number(form.minThreshold) < 0) tempErrors.minThreshold = "Threshold cannot be negative.";
         }
 
-        if (!form.currency) tempErrors.currency = "Currency is required.";
+        if (!form.currency)                             tempErrors.currency  = "Currency is required.";
 
         if (form.price === "" || form.price === null || form.price === undefined) {
             tempErrors.price = "Price is required.";
@@ -119,16 +146,15 @@ const ItemForm = ({ onAdd, editData }) => {
             tempErrors.tax = "Tax cannot be negative.";
         }
 
-        if (!form.supplier || !form.supplier.trim()) tempErrors.supplier = "Supplier Name is required.";
-        if (!form.code || !form.code.trim()) tempErrors.code = "Item Code is required.";
-        if (!form.status) tempErrors.status = "Status is required.";
-        if (!form.purchaseDate) tempErrors.purchaseDate = "Purchase Date is required.";
+        if (!form.supplier || !form.supplier.trim())    tempErrors.supplier     = "Supplier Name is required.";
+        if (!form.code || !form.code.trim())            tempErrors.code         = "Item Code is required.";
+        if (!form.status)                               tempErrors.status       = "Status is required.";
+        if (!form.purchaseDate)                         tempErrors.purchaseDate = "Purchase Date is required.";
 
         setErrors(tempErrors);
         return Object.keys(tempErrors).length === 0;
     };
 
-    // 🔹 Handle change
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm({ ...form, [name]: value });
@@ -141,59 +167,88 @@ const ItemForm = ({ onAdd, editData }) => {
         }
     };
 
-    // 🔹 Submit
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (validate()) {
-            onAdd(form);
-        }
+        if (validate()) onAdd(form);
     };
+
+    // Reusable field components for cleaner JSX
+    const Field = ({ label, name, type = "text", placeholder, required, readOnly, children }) => (
+        <div className="form-group">
+            <label className="form-label">
+                {label} {required && <span className="required-star">*</span>}
+            </label>
+            {children || (
+                <input
+                    type={type}
+                    name={name}
+                    placeholder={placeholder}
+                    value={form[name] ?? ""}
+                    onChange={handleChange}
+                    readOnly={readOnly}
+                    className={`form-input ${errors[name] ? "is-invalid" : ""} ${readOnly ? "readonly-input" : ""}`}
+                />
+            )}
+            {errors[name] && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors[name]}</span>}
+        </div>
+    );
 
     return (
         <div className="form-wrapper">
             <div className="form-card">
-                <h4 className="form-title mb-3">
-                    <i className={`bi ${editData ? "bi-pencil-square text-primary me-2" : "bi-plus-circle text-primary me-2"}`}></i>
-                    {editData ? "Edit Item Details" : "Add Item Details"}
-                </h4>
+
+                {/* ── Card Header ── */}
+                <div className="form-card-header">
+                    <div className="form-card-icon">
+                        <i className={`bi ${editData ? "bi-pencil-square" : "bi-plus-lg"}`}></i>
+                    </div>
+                    <div>
+                        <h4 className="form-title">{editData ? "Edit Item" : "Add New Item"}</h4>
+                        <p className="form-subtitle">
+                            {editData ? "Update the details below and save changes." : "Fill in the details to add a new inventory item."}
+                        </p>
+                    </div>
+                </div>
 
                 <form onSubmit={handleSubmit} className="form-grid" noValidate>
 
-                    <div className="form-group">
-                        <label>Item Name</label>
-                        <input
-                            type="text"
-                            name="name"
-                            placeholder="Enter item name"
-                            value={form.name}
-                            onChange={handleChange}
-                            className={errors.name ? "is-invalid" : ""}
-                        />
-                        {errors.name && <span className="error-text">{errors.name}</span>}
+                    {/* ══ SECTION: Basic Info ══ */}
+                    <div className="form-section-label full-width">
+                        <i className="bi bi-info-circle text-primary me-2"></i> Basic Information
                     </div>
 
+                    <Field label="Item Name" name="name" placeholder="e.g. Office Chair" required />
+
+                    {/* Warehouse — from master list */}
                     <div className="form-group">
-                        <label>Warehouse</label>
-                        <input
-                            type="text"
+                        <label className="form-label">
+                            Warehouse <span className="required-star">*</span>
+                        </label>
+                        <select
                             name="warehouse"
-                            placeholder="Enter warehouse"
                             value={form.warehouse}
                             onChange={handleChange}
-                            className={errors.warehouse ? "is-invalid" : ""}
-                        />
-                        {errors.warehouse && <span className="error-text">{errors.warehouse}</span>}
+                            className={`form-input ${errors.warehouse ? "is-invalid" : ""}`}
+                        >
+                            <option value="">-- Select Warehouse --</option>
+                            {warehouses.map(w => (
+                                <option key={w} value={w}>{w}</option>
+                            ))}
+                        </select>
+                        {errors.warehouse && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.warehouse}</span>}
                     </div>
 
                     <div className="form-group">
-                        <label>Category Type</label>
+                        <label className="form-label">
+                            Category Type <span className="required-star">*</span>
+                        </label>
                         <select
                             name="category_type"
                             value={form.category_type}
                             onChange={handleChange}
-                            className={errors.category_type ? "is-invalid" : ""}
+                            className={`form-input ${errors.category_type ? "is-invalid" : ""}`}
                         >
-                            <option value=""> --Select Type-- </option>
+                            <option value="">-- Select Type --</option>
                             <option value="Consumable">Consumable</option>
                             <option value="Non-Consumable">Non-Consumable</option>
                             <option value="Asset">Asset</option>
@@ -203,209 +258,184 @@ const ItemForm = ({ onAdd, editData }) => {
                             <option value="Capital">Capital Item</option>
                             <option value="Revenue">Revenue Item</option>
                         </select>
-                        {errors.category_type && <span className="error-text">{errors.category_type}</span>}
+                        {errors.category_type && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.category_type}</span>}
                     </div>
 
+                    {/* Category — from master list */}
                     <div className="form-group">
-                        <label>Category</label>
-                        <input
-                            type="text"
+                        <label className="form-label">
+                            Category <span className="required-star">*</span>
+                        </label>
+                        <select
                             name="category"
-                            placeholder="Enter category"
                             value={form.category}
                             onChange={handleChange}
-                            className={errors.category ? "is-invalid" : ""}
-                        />
-                        {errors.category && <span className="error-text">{errors.category}</span>}
+                            className={`form-input ${errors.category ? "is-invalid" : ""}`}
+                        >
+                            <option value="">-- Select Category --</option>
+                            {categories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                        {errors.category && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.category}</span>}
                     </div>
 
+                    <Field label="Item Code" name="code" placeholder="e.g. ITM-001" required />
+                    {/* Supplier — from master list */}
                     <div className="form-group">
-                        <label>Quantity</label>
-                        <input
-                            type="number"
-                            name="quantity"
-                            placeholder="Enter quantity"
-                            value={form.quantity}
+                        <label className="form-label">
+                            Supplier Name <span className="required-star">*</span>
+                        </label>
+                        <select
+                            name="supplier"
+                            value={form.supplier}
                             onChange={handleChange}
-                            className={errors.quantity ? "is-invalid" : ""}
-                        />
-                        {errors.quantity && <span className="error-text">{errors.quantity}</span>}
+                            className={`form-input ${errors.supplier ? "is-invalid" : ""}`}
+                        >
+                            <option value="">-- Select Supplier --</option>
+                            {suppliers.map(s => (
+                                <option key={s.id || s.name} value={s.name}>{s.name} {s.city ? `(${s.city})` : ""}</option>
+                            ))}
+                            {form.supplier && !suppliers.some(s => s.name === form.supplier) && (
+                                <option value={form.supplier}>{form.supplier}</option>
+                            )}
+                        </select>
+                        {errors.supplier && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.supplier}</span>}
                     </div>
 
-                    <div className="form-group">
-                        <label>Low Stock Threshold</label>
-                        <input
-                            type="number"
-                            name="minThreshold"
-                            placeholder="Threshold (Default is 5)"
-                            value={form.minThreshold}
-                            onChange={handleChange}
-                            className={errors.minThreshold ? "is-invalid" : ""}
-                        />
-                        {errors.minThreshold && <span className="error-text">{errors.minThreshold}</span>}
+                    {/* ══ SECTION: Stock & Pricing ══ */}
+                    <div className="form-section-label full-width">
+                        <i className="bi bi-box-seam text-primary me-2"></i> Stock & Pricing
                     </div>
 
+                    <Field label="Quantity" name="quantity" type="number" placeholder="0" required />
+                    <Field label="Low Stock Threshold" name="minThreshold" type="number" placeholder="5 (default)" />
+
                     <div className="form-group">
-                        <label>Currency</label>
+                        <label className="form-label">
+                            Currency <span className="required-star">*</span>
+                        </label>
                         <select
                             name="currency"
                             value={form.currency}
                             onChange={handleChange}
-                            className={errors.currency ? "is-invalid" : ""}
+                            className={`form-input ${errors.currency ? "is-invalid" : ""}`}
                         >
-                            <option value="INR">INR</option>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="GBP">GBP</option>
-                            <option value="JPY">JPY</option>
-                            <option value="CNY">CNY</option>
-                            <option value="AUD">AUD</option>
-                            <option value="CAD">CAD</option>
-                            <option value="CHF">CHF</option>
-                            <option value="SEK">SEK</option>
-                            <option value="NZD">NZD</option>
+                            <option value="INR">INR — Indian Rupee</option>
+                            <option value="USD">USD — US Dollar</option>
+                            <option value="EUR">EUR — Euro</option>
+                            <option value="GBP">GBP — British Pound</option>
+                            <option value="JPY">JPY — Japanese Yen</option>
+                            <option value="CNY">CNY — Chinese Yuan</option>
+                            <option value="AUD">AUD — Australian Dollar</option>
+                            <option value="CAD">CAD — Canadian Dollar</option>
+                            <option value="CHF">CHF — Swiss Franc</option>
+                            <option value="SEK">SEK — Swedish Krona</option>
+                            <option value="NZD">NZD — New Zealand Dollar</option>
                         </select>
-                        {errors.currency && <span className="error-text">{errors.currency}</span>}
+                        {errors.currency && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.currency}</span>}
+                    </div>
+
+                    <Field label="Price (per unit)" name="price" type="number" placeholder="0.00" required />
+                    <Field label="Tax Amount" name="tax" type="number" placeholder="0.00" required />
+
+                    {/* Total — auto calculated */}
+                    <div className="form-group">
+                        <label className="form-label">Total Amount <span className="calc-badge">Auto</span></label>
+                        <div className="total-display">
+                            <i className="bi bi-currency-rupee total-icon"></i>
+                            <span className="total-value">{Number(form.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
+                    {/* ══ SECTION: Status & Dates ══ */}
+                    <div className="form-section-label full-width">
+                        <i className="bi bi-calendar3 text-primary me-2"></i> Status & Dates
                     </div>
 
                     <div className="form-group">
-                        <label>Price</label>
-                        <input
-                            type="number"
-                            name="price"
-                            placeholder="Enter price"
-                            value={form.price}
-                            onChange={handleChange}
-                            className={errors.price ? "is-invalid" : ""}
-                        />
-                        {errors.price && <span className="error-text">{errors.price}</span>}
+                        <label className="form-label">
+                            Status <span className="required-star">*</span>
+                        </label>
+                        <div className="status-toggle-group">
+                            <button
+                                type="button"
+                                className={`status-toggle-btn ${form.status === "1" ? "active-status" : ""}`}
+                                onClick={() => { setForm(f => ({ ...f, status: "1" })); setErrors(e => { const n={...e}; delete n.status; return n; }); }}
+                            >
+                                <i className="bi bi-check-circle-fill me-1"></i> Active
+                            </button>
+                            <button
+                                type="button"
+                                className={`status-toggle-btn inactive ${form.status === "0" ? "active-inactive" : ""}`}
+                                onClick={() => { setForm(f => ({ ...f, status: "0" })); setErrors(e => { const n={...e}; delete n.status; return n; }); }}
+                            >
+                                <i className="bi bi-x-circle-fill me-1"></i> Inactive
+                            </button>
+                        </div>
+                        {errors.status && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.status}</span>}
                     </div>
 
-                    <div className="form-group">
-                        <label>Tax Amount</label>
-                        <input
-                            type="number"
-                            name="tax"
-                            placeholder="Enter tax amount"
-                            value={form.tax}
-                            onChange={handleChange}
-                            className={errors.tax ? "is-invalid" : ""}
-                        />
-                        {errors.tax && <span className="error-text">{errors.tax}</span>}
-                    </div>
+                    <Field label="Purchase Date" name="purchaseDate" type="date" required />
 
                     <div className="form-group">
-                        <label>Total Amount</label>
-                        <input type="number" value={form.total} readOnly />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Supplier Name</label>
-                        <input
-                            type="text"
-                            name="supplier"
-                            placeholder="Enter supplier name"
-                            value={form.supplier}
-                            onChange={handleChange}
-                            className={errors.supplier ? "is-invalid" : ""}
-                        />
-                        {errors.supplier && <span className="error-text">{errors.supplier}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label>Item Code</label>
-                        <input
-                            type="text"
-                            name="code"
-                            placeholder="Enter item code"
-                            value={form.code}
-                            onChange={handleChange}
-                            className={errors.code ? "is-invalid" : ""}
-                        />
-                        {errors.code && <span className="error-text">{errors.code}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label>Status</label>
-                        <select
-                            name="status"
-                            value={form.status}
-                            onChange={handleChange}
-                            className={errors.status ? "is-invalid" : ""}
-                        >
-                            <option value="1">Active</option>
-                            <option value="0">Inactive</option>
-                        </select>
-                        {errors.status && <span className="error-text">{errors.status}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label>Purchase Date</label>
+                        <label className="form-label">Created Date</label>
                         <input
                             type="date"
-                            name="purchaseDate"
-                            placeholder="Enter purchase date"
-                            value={form.purchaseDate}
-                            onChange={handleChange}
-                            className={errors.purchaseDate ? "is-invalid" : ""}
-                        />
-                        {errors.purchaseDate && <span className="error-text">{errors.purchaseDate}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label>Created Date</label>
-                        <input
-                            type="date"
-                            value={
-                                form.createdDate
-                                    ? new Date(form.createdDate).toISOString().split("T")[0]
-                                    : ""
-                            }
+                            value={form.createdDate ? new Date(form.createdDate).toISOString().split("T")[0] : ""}
                             readOnly
+                            className="form-input readonly-input"
                         />
                     </div>
 
-                    <div className="form-group">
-                        <label>Product Image URL (Optional)</label>
-                        <input
-                            type="text"
-                            name="imageUrl"
-                            placeholder="Enter image URL"
-                            value={form.imageUrl || ""}
-                            onChange={handleChange}
-                        />
+                    {/* ══ SECTION: Media & Notes ══ */}
+                    <div className="form-section-label full-width">
+                        <i className="bi bi-image text-primary me-2"></i> Media & Notes
                     </div>
 
+                    <Field label="Product Image URL (Optional)" name="imageUrl" placeholder="https://example.com/image.jpg" />
+
                     <div className="form-group">
-                        <label>Upload Image / Invoice PDF (Max 1.5MB)</label>
-                        <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            onChange={handleFileChange}
-                            className={fileError ? "is-invalid" : ""}
-                        />
-                        {fileError && <span className="error-text">{fileError}</span>}
+                        <label className="form-label">Upload Image / Invoice PDF <span className="size-hint">(Max 1.5 MB)</span></label>
+                        <label className="file-upload-label">
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={handleFileChange}
+                                className={fileError ? "is-invalid" : ""}
+                                style={{ display: "none" }}
+                            />
+                            <i className="bi bi-cloud-upload-fill me-2 text-primary"></i>
+                            {form.fileAttachment
+                                ? form.fileAttachment.name
+                                : "Click to upload file"}
+                        </label>
+                        {fileError && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{fileError}</span>}
                         {form.fileAttachment && (
-                            <span className="text-success d-block mt-1" style={{ fontSize: '12.5px', fontWeight: '500' }}>
-                                <i className="bi bi-file-earmark-check me-1"></i>
-                                {form.fileAttachment.name} ({Math.round(form.fileAttachment.base64.length * 0.75 / 1024)} KB) attached
+                            <span className="file-attached-info">
+                                <i className="bi bi-file-earmark-check-fill text-success me-1"></i>
+                                {form.fileAttachment.name} ({Math.round(form.fileAttachment.base64.length * 0.75 / 1024)} KB)
                             </span>
                         )}
                     </div>
 
                     <div className="form-group full-width">
-                        <label>Description</label>
+                        <label className="form-label">Description</label>
                         <textarea
                             name="description"
-                            placeholder="Enter description"
+                            placeholder="Enter item description, notes, or any additional details…"
                             value={form.description}
                             onChange={handleChange}
-                        ></textarea>
+                            className="form-input form-textarea"
+                        />
                     </div>
 
+                    {/* ══ Submit ══ */}
                     <button type="submit" className="submit-btn">
-                        {editData ? "Update Item" : "Save Item"}
+                        <i className={`bi ${editData ? "bi-check-lg" : "bi-plus-lg"} me-2`}></i>
+                        {editData ? "Save Changes" : "Add Item"}
                     </button>
+
                 </form>
             </div>
         </div>

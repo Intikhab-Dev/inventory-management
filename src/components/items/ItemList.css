@@ -313,13 +313,68 @@ body.dark .filter-bar input:focus {
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   transition: 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .export-btn:hover {
   box-shadow: 0 6px 15px rgba(34, 197, 94, 0.3);
 }
+
+.import-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.import-btn:hover {
+  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.3);
+}
+
+.print-btn {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.print-btn:hover {
+  box-shadow: 0 6px 15px rgba(139, 92, 246, 0.3);
+}
+
+/* Stock Log dropdown item */
+.dropdown-item.stock-log:hover {
+  background-color: #faf5ff;
+  color: #7c3aed;
+}
+
+.dropdown-item.stock-log:hover i {
+  color: #7c3aed;
+}
+
+body.dark .dropdown-item.stock-log:hover {
+  background: #2e1065;
+  color: #c4b5fd;
+}
+
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
@@ -462,3 +517,394 @@ body.dark .dropdown-toggle-btn.active {
   background-color: #334155;
   color: #f8fafc;
 }
+
+/* ─── Toolbar Row (below filter bar) ─── */
+.toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.results-count {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* ─── Per-page select ─── */
+.per-page-label {
+  font-size: 13px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.per-page-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1.5px solid #e0e7ef;
+  font-size: 13px;
+  background: #f8fafc;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.per-page-select:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+/* ─── Date filter inputs ─── */
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.date-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.date-input {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #e0e7ef;
+  font-size: 13px;
+  background: #f8fafc;
+  color: #374151;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 130px;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  background: #fff;
+}
+
+/* ─── Clear Filters Button ─── */
+.clear-filters-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #e0e7ef;
+  background: #fff5f5;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+/* ─── Column Sorting ─── */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sortable-th:hover {
+  background: #3d35cc;
+}
+
+.sort-icon {
+  font-size: 11px;
+  margin-left: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.sort-icon.muted {
+  opacity: 0.35;
+}
+
+.sort-icon.active-sort {
+  opacity: 1;
+  color: #c7d2fe;
+}
+
+/* ─── Checkbox columns ─── */
+.th-checkbox,
+.td-checkbox {
+  width: 36px;
+  text-align: center;
+  padding: 8px 6px !important;
+}
+
+.th-checkbox input[type="checkbox"],
+.td-checkbox input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #4f46e5;
+}
+
+/* ─── Selected row highlight ─── */
+.row-selected td {
+  background: #ede9fe !important;
+}
+
+body.dark .row-selected td {
+  background: #312e81 !important;
+}
+
+/* ─── Bulk Delete Button ─── */
+.bulk-delete-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.2s;
+}
+
+.bulk-delete-btn:hover {
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ─── Bulk Confirm Bar ─── */
+.bulk-confirm-bar {
+  background: #fffbeb;
+  border: 1.5px solid #fbbf24;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+
+.bulk-confirm-yes {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.bulk-confirm-yes:hover { opacity: 0.85; }
+
+.bulk-confirm-no {
+  background: #f1f5f9;
+  color: #374151;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.bulk-confirm-no:hover { background: #e2e8f0; }
+
+/* ─── Pagination ─── */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid #e0e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #ede9fe;
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+.page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.page-btn.active-page {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #fff;
+  font-weight: 700;
+}
+
+.page-ellipsis {
+  font-size: 14px;
+  color: #9ca3af;
+  padding: 0 4px;
+}
+
+.page-info {
+  font-size: 13px;
+  color: #64748b;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* ─── Duplicate dropdown item ─── */
+.dropdown-item.duplicate:hover {
+  background-color: #f0f9ff;
+  color: #0284c7;
+}
+
+.dropdown-item.duplicate:hover i {
+  color: #0284c7;
+}
+
+/* ─── Dark mode: new elements ─── */
+body.dark .per-page-select {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.dark .date-input {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.dark .date-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15);
+  background: #0f172a;
+}
+
+body.dark .results-count,
+body.dark .per-page-label,
+body.dark .date-label,
+body.dark .page-info {
+  color: #94a3b8;
+}
+
+body.dark .clear-filters-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f87171;
+}
+
+body.dark .clear-filters-btn:hover {
+  background: #2d1f1f;
+  border-color: #ef4444;
+}
+
+body.dark .page-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+body.dark .page-btn:hover:not(:disabled) {
+  background: #312e81;
+  border-color: #818cf8;
+  color: #a5b4fc;
+}
+
+body.dark .page-btn.active-page {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #fff;
+}
+
+body.dark .bulk-confirm-bar {
+  background: #1e1a0e;
+  border-color: #b45309;
+  color: #fde68a;
+}
+
+body.dark .bulk-confirm-no {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+body.dark .bulk-confirm-no:hover {
+  background: #334155;
+}
+
+body.dark .dropdown-menu-list {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark .dropdown-item {
+  color: #cbd5e1;
+}
+
+body.dark .dropdown-item.view:hover {
+  background: #172554;
+  color: #60a5fa;
+}
+
+body.dark .dropdown-item.edit:hover {
+  background: #14532d;
+  color: #4ade80;
+}
+
+body.dark .dropdown-item.duplicate:hover {
+  background: #0c4a6e;
+  color: #38bdf8;
+}
+
+body.dark .dropdown-item.delete:hover {
+  background: #450a0a;
+  color: #f87171;
+}
+
+body.dark .dropdown-divider {
+  background-color: #334155;
+}

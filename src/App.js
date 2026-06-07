@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 
 // Components
 import Header from "./components/layout/Header";
+import Sidebar from "./components/layout/Sidebar";
 import Dashboard from "./components/dashboard/Dashboard";
 import ItemForm from "./components/items/ItemForm";
 import ItemList from "./components/items/ItemList";
@@ -9,10 +10,16 @@ import ItemView from "./components/items/ItemView";
 import ConfirmModal from "./components/common/ConfirmModal";
 import ViewModal from "./components/common/ViewModal";
 import Auth from "./components/auth/Auth";
+import Settings from "./components/settings/Settings";
+import LowStockAlert from "./components/alerts/LowStockAlert";
+import SupplierManagement from "./components/suppliers/SupplierManagement";
+import Reports from "./components/reports/Reports";
+import StockOut from "./components/stockout/StockOut";
 
 // Services
 import { authService } from "./services/authService";
 import { activityService } from "./services/activityService";
+import { transactionService } from "./services/transactionService";
 
 import "./App.css";
 
@@ -25,6 +32,7 @@ function App() {
   const [deleteName, setDeleteName] = useState("");
   const [viewModal, setViewModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -90,8 +98,19 @@ function App() {
 
     saveItems(updatedItems);
     activityService.addLog("add_item", `Added item "${newItem.name}" with quantity ${newItem.quantity}`, currentUser?.name);
-    showToast("Item added successfully");
+    
+    // Log stock ledger transaction
+    transactionService.addTransaction({
+      itemId: newItem.code,
+      itemName: newItem.name,
+      type: "IN",
+      qty: newItem.quantity,
+      reason: "Initial Stock",
+      notes: newItem.description || "Initial inventory load",
+      user: currentUser?.name || "System"
+    });
 
+    showToast("Item added successfully");
     setPage("list");
   };
 
@@ -117,6 +136,16 @@ function App() {
       }
       if (Number(originalItem.quantity) !== Number(updatedItem.quantity)) {
         changes.push(`quantity changed from ${originalItem.quantity} to ${updatedItem.quantity}`);
+        const diff = Number(updatedItem.quantity) - Number(originalItem.quantity);
+        transactionService.addTransaction({
+          itemId: updatedItem.code,
+          itemName: updatedItem.name,
+          type: diff > 0 ? "IN" : "OUT",
+          qty: Math.abs(diff),
+          reason: diff > 0 ? "Manual Adjustment (Increase)" : "Manual Adjustment (Decrease)",
+          notes: "Quantity updated via item details update",
+          user: currentUser?.name || "System"
+        });
       }
       if (Number(originalItem.minThreshold || 0) !== Number(updatedItem.minThreshold || 0)) {
         changes.push(`threshold changed from ${originalItem.minThreshold || 0} to ${updatedItem.minThreshold || 0}`);
@@ -174,6 +203,143 @@ function App() {
 
     setSelectedItem(null);
     setPage("list");
+  };
+
+  // 🔹 Duplicate Item
+  const handleDuplicateItem = (item) => {
+    const newItem = {
+      ...item,
+      id: Date.now(),
+      name: `${item.name} (Copy)`,
+      createdDate: String(Date.now()),
+    };
+    const updatedItems = [...items, newItem];
+    saveItems(updatedItems);
+    activityService.addLog("add_item", `Duplicated item "${item.name}" as "${newItem.name}"`, currentUser?.name);
+    showToast(`"${item.name}" duplicated successfully`);
+  };
+
+  // 🔹 Stock Update (from StockLogModal)
+  const handleStockUpdate = (itemId, delta) => {
+    let updatedItemObj = null;
+    const updatedItems = items.map(item => {
+      if (String(item.id) === String(itemId)) {
+        const currentQty = Number(item.quantity) || 0;
+        const newQty = Math.max(0, currentQty + delta);
+        const actualDelta = newQty - currentQty;
+        
+        if (actualDelta !== 0) {
+          updatedItemObj = { ...item, quantity: newQty };
+          // Log stock ledger transaction
+          transactionService.addTransaction({
+            itemId: item.code,
+            itemName: item.name,
+            type: actualDelta > 0 ? "IN" : "OUT",
+            qty: Math.abs(actualDelta),
+            reason: actualDelta > 0 ? "Restock" : "Sales / Dispatch",
+            notes: "Quick stock adjustment from list logs",
+            user: currentUser?.name || "System"
+          });
+          return updatedItemObj;
+        }
+      }
+      return item;
+    });
+
+    if (updatedItemObj) {
+      saveItems(updatedItems);
+      setItems(updatedItems);
+      const dir = delta > 0 ? `+${delta}` : String(delta);
+      activityService.addLog("update_item", `Stock adjusted by ${dir} for item "${updatedItemObj.name}"`, currentUser?.name);
+    }
+  };
+
+  // 🔹 Quick Stock Adjustment (from ViewModal)
+  const handleAdjustStock = (itemId, qty, type, reason, notes) => {
+    const qtyChange = Number(qty);
+    if (isNaN(qtyChange) || qtyChange <= 0) return;
+
+    let updatedSelectedItem = null;
+
+    const updatedItems = items.map(item => {
+      if (item.id === itemId) {
+        const currentQty = Number(item.quantity) || 0;
+        const newQty = type === "IN" ? currentQty + qtyChange : Math.max(0, currentQty - qtyChange);
+        const actualChange = newQty - currentQty;
+        
+        if (actualChange === 0) return item;
+
+        // Log transaction
+        transactionService.addTransaction({
+          itemId: item.code,
+          itemName: item.name,
+          type: actualChange > 0 ? "IN" : "OUT",
+          qty: Math.abs(actualChange),
+          reason: reason || (actualChange > 0 ? "Restock" : "Dispatch"),
+          notes: notes || "Quick stock adjustment",
+          user: currentUser?.name || "System"
+        });
+
+        // Log activity log
+        activityService.addLog(
+          "update_item",
+          `Adjusted stock for "${item.name}" (Qty: ${currentQty} -> ${newQty}, Reason: ${reason})`,
+          currentUser?.name
+        );
+
+        updatedSelectedItem = { ...item, quantity: newQty };
+        return updatedSelectedItem;
+      }
+      return item;
+    });
+
+    if (updatedSelectedItem) {
+      setItems(updatedItems);
+      saveItems(updatedItems);
+      setSelectedItem(updatedSelectedItem);
+      showToast("Stock adjusted successfully");
+    }
+  };
+
+  // 🔹 Stock Out / Dispatch Handler
+  const handleStockOut = (itemId, qty, reason, dispatchedTo, notes) => {
+    const qtyChange = Number(qty);
+    if (isNaN(qtyChange) || qtyChange <= 0) return;
+
+    const updatedItems = items.map(item => {
+      if (item.id === itemId) {
+        const currentQty = Number(item.quantity) || 0;
+        const newQty = Math.max(0, currentQty - qtyChange);
+        const actualChange = newQty - currentQty;
+        
+        if (actualChange === 0) return item;
+
+        // Log transaction
+        transactionService.addTransaction({
+          itemId: item.code,
+          itemName: item.name,
+          type: "OUT",
+          qty: Math.abs(actualChange),
+          reason: reason || "Sales / Dispatch",
+          notes: `${notes || ""} (Dispatched to: ${dispatchedTo})`,
+          user: currentUser?.name || "System"
+        });
+
+        // Log activity log
+        activityService.addLog(
+          "update_item",
+          `Dispatched ${Math.abs(actualChange)} units of "${item.name}" to "${dispatchedTo}" (Reason: ${reason})`,
+          currentUser?.name
+        );
+
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    });
+
+    setItems(updatedItems);
+    saveItems(updatedItems);
+    showToast("Stock dispatched successfully");
   };
 
   // 🔹 Delete Item
@@ -244,19 +410,110 @@ function App() {
     (item) => Number(item.quantity) <= (Number(item.minThreshold) || 5)
   );
 
+  const getPageTitle = () => {
+    switch (page) {
+      case "dashboard":
+        return "Dashboard Overview";
+      case "list":
+        return "Inventory Catalog";
+      case "add":
+        return selectedItem ? "Edit Inventory Item" : "Add New Item";
+      case "suppliers":
+        return "Supplier Directory";
+      case "stockout":
+        return "Stock Out (Dispatch)";
+      case "reports":
+        return "Reports & Analytics";
+      case "alerts":
+        return "Low Stock Alerts";
+      case "settings":
+        return "System Settings";
+      default:
+        return "Control Panel";
+    }
+  };
+
   return (
-    <div>
-      <Header
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        lowStockItems={lowStockItems}
-        onViewItem={(item) => {
-          setSelectedItem(item);
-          setViewModal(true);
+    <div className="app-layout">
+      <Sidebar
+        page={page}
+        setPage={setPage}
+        items={items}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        onAddClick={() => {
+          setSelectedItem(null);
         }}
       />
+
+      <div className={`main-content-container ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+        <Header
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          lowStockItems={lowStockItems}
+          pageTitle={getPageTitle()}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          onViewItem={(item) => {
+            setSelectedItem(item);
+            setViewModal(true);
+          }}
+        />
+
+        <div className="page-content">
+          {/* 🔹 Pages */}
+          {page === "dashboard" && <Dashboard items={items} />}
+
+          {page === "list" && (
+            <ItemList
+              items={items}
+              onView={(item) => {
+                setSelectedItem(item);
+                setViewModal(true);
+              }}
+              onDelete={handleDelete}
+              onEdit={(item) => {
+                setSelectedItem(item);
+                setPage("add");
+              }}
+              openDeleteModal={openDeleteModal}
+              onDuplicate={handleDuplicateItem}
+              onStockUpdate={handleStockUpdate}
+            />
+          )}
+
+          {page === "alerts" && (
+            <LowStockAlert
+              items={items}
+              onView={(item) => { setSelectedItem(item); setViewModal(true); }}
+              onEdit={(item) => { setSelectedItem(item); setPage("add"); }}
+            />
+          )}
+
+          {page === "suppliers" && <SupplierManagement items={items} />}
+
+          {page === "stockout" && (
+            <StockOut items={items} onStockOut={handleStockOut} />
+          )}
+
+          {page === "reports" && <Reports items={items} />}
+
+          {page === "settings" && <Settings />}
+
+          {page === "add" && (
+            <ItemForm
+              onAdd={selectedItem ? handleUpdateItem : handleAddItem}
+              editData={selectedItem}
+            />
+          )}
+
+          {page === "view" && selectedItem && (
+            <ItemView item={selectedItem} onBack={() => setPage("list")} />
+          )}
+        </div>
+      </div>
 
       <ConfirmModal
         show={showModal}
@@ -269,72 +526,11 @@ function App() {
         show={viewModal}
         item={selectedItem}
         onClose={() => setViewModal(false)}
+        onAdjustStock={handleAdjustStock}
       />
 
-      {/*  Toast */}
+      {/* Toast */}
       {toast.show && <div className="toast-box">{toast.message}</div>}
-
-      {/*  Navigation */}
-      <div className="nav-container">
-
-        <button
-          className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
-          onClick={() => setPage("dashboard")}
-        >
-          <i className="bi bi-speedometer2"></i>
-          <span>Dashboard</span>
-        </button>
-
-        <button
-          className={`nav-btn ${page === "list" ? "active" : ""}`}
-          onClick={() => setPage("list")}
-        >
-          <i className="bi bi-list-ul"></i>
-          <span>Item List</span>
-        </button>
-
-        <button
-          className={`nav-btn ${page === "add" ? "active" : ""}`}
-          onClick={() => {
-            setSelectedItem(null);
-            setPage("add");
-          }}
-        >
-          <i className="bi bi-plus-circle"></i>
-          <span>Add Item</span>
-        </button>
-
-      </div>
-
-      {/* 🔹 Pages */}
-      {page === "dashboard" && <Dashboard items={items} />}
-
-      {page === "list" && (
-        <ItemList
-          items={items}
-          onView={(item) => {
-            setSelectedItem(item);
-            setViewModal(true); //  modal open
-          }}
-          onDelete={handleDelete}
-          onEdit={(item) => {
-            setSelectedItem(item);
-            setPage("add");
-          }}
-          openDeleteModal={openDeleteModal}   //  ADD THIS
-        />
-      )}
-
-      {page === "add" && (
-        <ItemForm
-          onAdd={selectedItem ? handleUpdateItem : handleAddItem}
-          editData={selectedItem}
-        />
-      )}
-
-      {page === "view" && selectedItem && (
-        <ItemView item={selectedItem} onBack={() => setPage("list")} />
-      )}
     </div>
   );
 }
