@@ -153,11 +153,12 @@ const Reports = ({ items = [] }) => {
 
         // All items sheet
         const itemRows = [
-            ["#", "Name", "Code", "Category", "Warehouse", "Supplier", "Qty", "Price (₹)", "Tax (₹)", "Total (₹)", "Status", "Purchase Date"],
+            ["#", "Name", "Code", "Category", "Warehouse", "Supplier", "Qty", "Price (₹)", "Tax (₹)", "Total (₹)", "Status", "Purchase Date", "Bill Number", "Bill Date", "PO Number"],
             ...items.map((item, idx) => [
                 idx + 1, item.name, item.code, item.category, item.warehouse,
                 item.supplier, item.quantity, item.price, item.tax, item.total,
                 item.status === "1" ? "Active" : "Inactive", item.purchaseDate,
+                item.billNumber || "—", item.billDate || "—", item.poNumber || "—"
             ])
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(itemRows), "All Items");
@@ -253,6 +254,11 @@ const Reports = ({ items = [] }) => {
                                     setEndDate("");
                                 }
                             }}
+                            onClick={(e) => {
+                                if (typeof e.target.showPicker === "function") {
+                                    try { e.target.showPicker(); } catch (err) {}
+                                }
+                            }}
                             className="tform-input"
                         />
                     </div>
@@ -267,6 +273,11 @@ const Reports = ({ items = [] }) => {
                                 setEndDate(val);
                                 if (startDate && val && val < startDate) {
                                     setStartDate("");
+                                }
+                            }}
+                            onClick={(e) => {
+                                if (typeof e.target.showPicker === "function") {
+                                    try { e.target.showPicker(); } catch (err) {}
                                 }
                             }}
                             className="tform-input"

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./Header.css";
 
-const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle, sidebarCollapsed, setSidebarCollapsed }) => {
+const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState(() => {
@@ -67,139 +67,127 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
     onLogout();
   };
 
-  const avatarInitial = currentUser && currentUser.name 
-    ? currentUser.name.charAt(0).toUpperCase() 
+  const avatarInitial = currentUser && currentUser.name
+    ? currentUser.name.charAt(0).toUpperCase()
     : "U";
 
   return (
     <header className="header">
-      {/* 🔹 LEFT */}
-      <div className="header-left">
-        <button
-          type="button"
-          className="sidebar-toggle-btn-header"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSidebarCollapsed(!sidebarCollapsed);
-          }}
-          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          <i className={`bi ${sidebarCollapsed ? "bi-list" : "bi-x-lg"}`}></i>
-        </button>
-
-        <div className="title-box">
-          <h2>{pageTitle || "Dashboard Overview"}</h2>
-          <span>IMS Control Panel</span>
+      <div className="header-inner">
+        {/* 🔹 LEFT */}
+        <div className="header-left">
+          <div className="title-box">
+            <h2>{pageTitle || "Dashboard Overview"}</h2>
+            <span>IMS Control Panel</span>
+          </div>
         </div>
-      </div>
 
-      {/* 🔹 RIGHT */}
-      <div className="header-right">
-        {/* Theme Toggle Button */}
-        <button
-          className="theme-toggle-btn"
-          onClick={() => setDarkMode(!darkMode)}
-          title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        >
-          {darkMode ? (
-            <i className="bi bi-sun-fill" style={{ color: "#facc15" }}></i>
-          ) : (
-            <i className="bi bi-moon-fill" style={{ color: "#64748b" }}></i>
-          )}
-        </button>
-
-        {/* Notifications Icon Button */}
-        <div className="icon-btn-container" style={{ position: 'relative' }}>
+        {/* 🔹 RIGHT */}
+        <div className="header-right">
+          {/* Theme Toggle Button */}
           <button
-            type="button"
-            className={`icon-btn ${showNotifications ? "active" : ""}`}
-            title="Notifications"
-            onClick={toggleNotifications}
+            className="theme-toggle-btn"
+            onClick={() => setDarkMode(!darkMode)}
+            title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            <i className="bi bi-bell"></i>
-            {visibleAlerts.length > 0 && (
-              <span className="notification-badge">{visibleAlerts.length}</span>
+            {darkMode ? (
+              <i className="bi bi-sun-fill" style={{ color: "#facc15" }}></i>
+            ) : (
+              <i className="bi bi-moon-fill" style={{ color: "#64748b" }}></i>
             )}
           </button>
 
-          {showNotifications && (
-            <div className="notifications-dropdown animate-fade-in">
-              <div className="dropdown-header-title d-flex justify-content-between align-items-center">
-                <span>Alerts & Notifications</span>
-                {visibleAlerts.length > 0 && (
-                  <button className="dismiss-all-btn" onClick={handleDismissAll}>
-                    Dismiss All
-                  </button>
-                )}
-              </div>
-              <div className="dropdown-divider"></div>
-              <div className="notifications-list">
-                {visibleAlerts.length === 0 ? (
-                  <div className="notification-item empty">
-                    <i className="bi bi-bell-slash text-muted me-2"></i>
-                    No alerts
-                  </div>
-                ) : (
-                  visibleAlerts.map((item) => (
-                    <div
-                      key={item.id}
-                      className="notification-item alert-item d-flex align-items-start justify-content-between"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onViewItem) onViewItem(item);
-                        setShowNotifications(false);
-                      }}
-                    >
-                      <div className="d-flex align-items-start text-start">
-                        <i className="bi bi-exclamation-triangle-fill text-danger me-2 mt-1"></i>
-                        <div className="notification-content">
-                          <span className="item-alert-name">{item.name}</span> is low on stock!
-                          <span className="item-alert-qty">{item.quantity} units left (Limit: {item.minThreshold || 5})</span>
-                        </div>
-                      </div>
-                      <button
-                        className="dismiss-single-btn"
-                        onClick={(e) => handleDismissAlert(e, item.id)}
-                        title="Dismiss Alert"
-                      >
-                        <i className="bi bi-x"></i>
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Notifications Icon Button */}
+          <div className="icon-btn-container" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`icon-btn ${showNotifications ? "active" : ""}`}
+              title="Notifications"
+              onClick={toggleNotifications}
+            >
+              <i className="bi bi-bell"></i>
+              {visibleAlerts.length > 0 && (
+                <span className="notification-badge">{visibleAlerts.length}</span>
+              )}
+            </button>
 
-
-
-        {currentUser && (
-          <div className="user-box-container">
-            <div className="user-box" onClick={toggleDropdown}>
-              <div className="avatar">{avatarInitial}</div>
-              <span>{currentUser.name}</span>
-              <i className={`bi bi-chevron-${showDropdown ? 'up' : 'down'} ms-1`} style={{ fontSize: '10px' }}></i>
-            </div>
-
-            {showDropdown && (
-              <div className="header-dropdown animate-fade-in">
-                <div className="dropdown-user-info">
-                  <div className="dropdown-avatar">{avatarInitial}</div>
-                  <div className="dropdown-details">
-                    <div className="dropdown-name">{currentUser.name}</div>
-                    <div className="dropdown-email">{currentUser.email}</div>
-                  </div>
+            {showNotifications && (
+              <div className="notifications-dropdown animate-fade-in">
+                <div className="dropdown-header-title d-flex justify-content-between align-items-center">
+                  <span>Alerts & Notifications</span>
+                  {visibleAlerts.length > 0 && (
+                    <button className="dismiss-all-btn" onClick={handleDismissAll}>
+                      Dismiss All
+                    </button>
+                  )}
                 </div>
                 <div className="dropdown-divider"></div>
-                <button className="dropdown-logout-btn" onClick={handleLogoutClick}>
-                  <i className="bi bi-box-arrow-right me-2"></i>
-                  Logout
-                </button>
+                <div className="notifications-list">
+                  {visibleAlerts.length === 0 ? (
+                    <div className="notification-item empty">
+                      <i className="bi bi-bell-slash text-muted me-2"></i>
+                      No alerts
+                    </div>
+                  ) : (
+                    visibleAlerts.map((item) => (
+                      <div
+                        key={item.id}
+                        className="notification-item alert-item d-flex align-items-start justify-content-between"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewItem) onViewItem(item);
+                          setShowNotifications(false);
+                        }}
+                      >
+                        <div className="d-flex align-items-start text-start">
+                          <i className="bi bi-exclamation-triangle-fill text-danger me-2 mt-1"></i>
+                          <div className="notification-content">
+                            <span className="item-alert-name">{item.name}</span> is low on stock!
+                            <span className="item-alert-qty">{item.quantity} units left (Limit: {item.minThreshold || 5})</span>
+                          </div>
+                        </div>
+                        <button
+                          className="dismiss-single-btn"
+                          onClick={(e) => handleDismissAlert(e, item.id)}
+                          title="Dismiss Alert"
+                        >
+                          <i className="bi bi-x"></i>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
-        )}
+
+          {currentUser && (
+            <div className="user-box-container">
+              <div className="user-box" onClick={toggleDropdown}>
+                <div className="avatar">{avatarInitial}</div>
+                <span>{currentUser.name}</span>
+                <i className={`bi bi-chevron-${showDropdown ? 'up' : 'down'} ms-1`} style={{ fontSize: '10px' }}></i>
+              </div>
+
+              {showDropdown && (
+                <div className="header-dropdown animate-fade-in">
+                  <div className="dropdown-user-info">
+                    <div className="dropdown-avatar">{avatarInitial}</div>
+                    <div className="dropdown-details">
+                      <div className="dropdown-name">{currentUser.name}</div>
+                      <div className="dropdown-email">{currentUser.email}</div>
+                    </div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  <button className="dropdown-logout-btn" onClick={handleLogoutClick}>
+                    <i className="bi bi-box-arrow-right me-2"></i>
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

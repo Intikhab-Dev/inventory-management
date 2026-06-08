@@ -22,6 +22,16 @@ const Sidebar = ({ page, setPage, items = [], onAddClick, collapsed, setCollapse
 
     return (
         <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+            {/* Toggle Collapse/Expand Button */}
+            <button
+                type="button"
+                className="sidebar-toggle-btn"
+                onClick={() => setCollapsed(!collapsed)}
+                title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+                <i className={`bi ${collapsed ? "bi-list" : "bi-x-lg"}`}></i>
+            </button>
+
             {/* Logo Brand Section */}
             <div className="sidebar-brand">
                 <div className="brand-logo">

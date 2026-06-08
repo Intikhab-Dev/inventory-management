@@ -201,6 +201,9 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
             "Item Code": item.code,
             "Status": item.status === "1" ? "Active" : "Inactive",
             "Purchase Date": item.purchaseDate,
+            "Bill Number": item.billNumber || "—",
+            "Bill Date": item.billDate || "—",
+            "PO Number": item.poNumber || "—",
             "Created Date": item.createdDate
                 ? new Date(Number(item.createdDate)).toLocaleDateString("en-GB")
                 : "N/A",
@@ -225,7 +228,7 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
         { key: "price",        label: "Price" },
         { key: "tax",          label: "Tax" },
         { key: "total",        label: "Total" },
-        { key: "purchaseDate", label: "Purchase Date" },
+        // { key: "purchaseDate", label: "Purchase Date" },
         { key: "status",       label: "Status" },
     ];
 
@@ -272,6 +275,11 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                 className="date-input"
                                 value={dateFrom}
                                 onChange={e => setDateFrom(e.target.value)}
+                                onClick={(e) => {
+                                    if (typeof e.target.showPicker === "function") {
+                                        try { e.target.showPicker(); } catch (err) {}
+                                    }
+                                }}
                             />
                         </div>
 
@@ -283,6 +291,11 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                 className="date-input"
                                 value={dateTo}
                                 onChange={e => setDateTo(e.target.value)}
+                                onClick={(e) => {
+                                    if (typeof e.target.showPicker === "function") {
+                                        try { e.target.showPicker(); } catch (err) {}
+                                    }
+                                }}
                             />
                         </div>
 
@@ -486,11 +499,11 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                     <td>₹ {item.price}</td>
                                     <td>₹ {item.tax}</td>
                                     <td className="total">₹ {item.total}</td>
-                                    <td>
+                                    {/* <td>
                                         {item.purchaseDate
                                             ? new Date(item.purchaseDate).toLocaleDateString("en-GB")
                                             : "N/A"}
-                                    </td>
+                                    </td> */}
                                     <td>
                                         <span
                                             className={

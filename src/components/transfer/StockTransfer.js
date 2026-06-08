@@ -7,6 +7,9 @@ const StockTransfer = ({ items = [], onTransfer }) => {
   const [newWarehouseName, setNewWarehouseName] = useState("");
   const [qty, setQty] = useState("");
   const [notes, setNotes] = useState("");
+  const [billNumber, setBillNumber] = useState("");
+  const [billDate, setBillDate] = useState("");
+  const [poNumber, setPoNumber] = useState("");
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -20,6 +23,18 @@ const StockTransfer = ({ items = [], onTransfer }) => {
   const selectedItem = useMemo(() => {
     return items.find((item) => String(item.id) === String(selectedItemId));
   }, [selectedItemId, items]);
+
+  useEffect(() => {
+    if (selectedItem) {
+      setBillNumber(selectedItem.billNumber || "");
+      setBillDate(selectedItem.billDate || "");
+      setPoNumber(selectedItem.poNumber || "");
+    } else {
+      setBillNumber("");
+      setBillDate("");
+      setPoNumber("");
+    }
+  }, [selectedItem]);
 
   // Extract unique warehouses from all items in system
   const warehouses = useMemo(() => {
@@ -47,6 +62,9 @@ const StockTransfer = ({ items = [], onTransfer }) => {
     setNewWarehouseName("");
     setQty("");
     setNotes("");
+    setBillNumber("");
+    setBillDate("");
+    setPoNumber("");
     setErrors({});
   };
 
@@ -80,6 +98,16 @@ const StockTransfer = ({ items = [], onTransfer }) => {
       }
     }
 
+    if (!billNumber || !billNumber.trim()) {
+      tempErrors.billNumber = "Bill Number is required.";
+    }
+    if (!billDate) {
+      tempErrors.billDate = "Bill Date is required.";
+    }
+    if (!poNumber || !poNumber.trim()) {
+      tempErrors.poNumber = "PO Number is required.";
+    }
+
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
@@ -97,7 +125,10 @@ const StockTransfer = ({ items = [], onTransfer }) => {
         selectedItem.warehouse,
         finalTargetWh,
         Number(qty),
-        notes.trim()
+        notes.trim(),
+        billNumber.trim(),
+        billDate,
+        poNumber.trim()
       );
 
       setSuccessMessage(
@@ -254,6 +285,76 @@ const StockTransfer = ({ items = [], onTransfer }) => {
                 {errors.newWh && <span className="terror">{errors.newWh}</span>}
               </div>
             )}
+
+            {/* Bill Number */}
+            <div className="tform-group">
+              <label>Bill Number <span className="req">*</span></label>
+              <input
+                type="text"
+                placeholder="e.g. BILL-12345"
+                value={billNumber}
+                onChange={(e) => {
+                  setBillNumber(e.target.value);
+                  if (errors.billNumber) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.billNumber;
+                      return n;
+                    });
+                  }
+                }}
+                className={`tform-input ${errors.billNumber ? "tinvalid" : ""}`}
+              />
+              {errors.billNumber && <span className="terror">{errors.billNumber}</span>}
+            </div>
+
+            {/* Bill Date */}
+            <div className="tform-group">
+              <label>Bill Date <span className="req">*</span></label>
+              <input
+                type="date"
+                value={billDate}
+                onChange={(e) => {
+                  setBillDate(e.target.value);
+                  if (errors.billDate) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.billDate;
+                      return n;
+                    });
+                  }
+                }}
+                onClick={(e) => {
+                  if (typeof e.target.showPicker === "function") {
+                    try { e.target.showPicker(); } catch (err) {}
+                  }
+                }}
+                className={`tform-input ${errors.billDate ? "tinvalid" : ""}`}
+              />
+              {errors.billDate && <span className="terror">{errors.billDate}</span>}
+            </div>
+
+            {/* PO Number */}
+            <div className="tform-group tfull">
+              <label>PO Number <span className="req">*</span></label>
+              <input
+                type="text"
+                placeholder="e.g. PO-98765"
+                value={poNumber}
+                onChange={(e) => {
+                  setPoNumber(e.target.value);
+                  if (errors.poNumber) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.poNumber;
+                      return n;
+                    });
+                  }
+                }}
+                className={`tform-input ${errors.poNumber ? "tinvalid" : ""}`}
+              />
+              {errors.poNumber && <span className="terror">{errors.poNumber}</span>}
+            </div>
 
             {/* Notes */}
             <div className="tform-group tfull">

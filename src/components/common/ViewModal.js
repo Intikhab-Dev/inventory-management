@@ -32,7 +32,10 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
                    `Quantity: ${item.quantity}\n` +
                    `Price: ₹${Number(item.price).toLocaleString()}\n` +
                    `Total: ₹${Number(item.total).toLocaleString()}\n` +
-                   `Supplier: ${item.supplier || "N/A"}`;
+                   `Supplier: ${item.supplier || "N/A"}\n` +
+                   `Bill No: ${item.billNumber || "N/A"}\n` +
+                   `Bill Date: ${item.billDate ? new Date(item.billDate).toLocaleDateString("en-GB") : "N/A"}\n` +
+                   `PO No: ${item.poNumber || "N/A"}`;
 
     QRCode.toDataURL(qrText, { margin: 2, width: 200 })
       .then((url) => {
@@ -278,6 +281,18 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
         <td>${item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString('en-GB') : 'N/A'}</td>
       </tr>
       <tr>
+        <td><strong>Bill Number</strong></td>
+        <td>${item.billNumber || 'N/A'}</td>
+      </tr>
+      <tr>
+        <td><strong>Bill Date</strong></td>
+        <td>${item.billDate ? new Date(item.billDate).toLocaleDateString('en-GB') : 'N/A'}</td>
+      </tr>
+      <tr>
+        <td><strong>PO Number</strong></td>
+        <td>${item.poNumber || 'N/A'}</td>
+      </tr>
+      <tr>
         <td><strong>Description</strong></td>
         <td>${item.description || 'No description provided.'}</td>
       </tr>
@@ -449,6 +464,34 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
               <p>
                 {item.createdDate
                   ? new Date(Number(item.createdDate)).toLocaleDateString("en-GB")
+                  : "N/A"}
+              </p>
+            </div>
+
+            <div>
+              <label><i className="bi bi-file-earmark-text text-primary me-1"></i> PO Number</label>
+              <p>{item.poNumber || "N/A"}</p>
+            </div>
+
+            <div>
+              <label><i className="bi bi-calendar2-check text-primary me-1"></i> PO Date</label>
+              <p>
+                {item.purchaseDate
+                  ? new Date(item.purchaseDate).toLocaleDateString("en-GB")
+                  : "N/A"}
+              </p>
+            </div>
+
+            <div>
+              <label><i className="bi bi-receipt text-primary me-1"></i> Bill Number</label>
+              <p>{item.billNumber || "N/A"}</p>
+            </div>
+
+            <div>
+              <label><i className="bi bi-calendar2-check text-primary me-1"></i> Bill Date</label>
+              <p>
+                {item.billDate
+                  ? new Date(item.billDate).toLocaleDateString("en-GB")
                   : "N/A"}
               </p>
             </div>

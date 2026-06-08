@@ -141,6 +141,11 @@ const StockLedger = () => {
                         className="ledger-filter-input date"
                         value={dateFrom}
                         onChange={e => setDateFrom(e.target.value)}
+                        onClick={(e) => {
+                            if (typeof e.target.showPicker === "function") {
+                                try { e.target.showPicker(); } catch (err) {}
+                            }
+                        }}
                     />
                 </div>
 
@@ -151,6 +156,11 @@ const StockLedger = () => {
                         className="ledger-filter-input date"
                         value={dateTo}
                         onChange={e => setDateTo(e.target.value)}
+                        onClick={(e) => {
+                            if (typeof e.target.showPicker === "function") {
+                                try { e.target.showPicker(); } catch (err) {}
+                            }
+                        }}
                     />
                 </div>
 

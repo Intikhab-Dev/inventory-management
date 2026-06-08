@@ -183,6 +183,15 @@ function App() {
       if (String(originalItem.purchaseDate || '').trim() !== String(updatedItem.purchaseDate || '').trim()) {
         changes.push(`purchase date changed from "${originalItem.purchaseDate || 'None'}" to "${updatedItem.purchaseDate || 'None'}"`);
       }
+      if (String(originalItem.billNumber || '').trim() !== String(updatedItem.billNumber || '').trim()) {
+        changes.push(`bill number changed from "${originalItem.billNumber || 'None'}" to "${updatedItem.billNumber || 'None'}"`);
+      }
+      if (String(originalItem.billDate || '').trim() !== String(updatedItem.billDate || '').trim()) {
+        changes.push(`bill date changed from "${originalItem.billDate || 'None'}" to "${updatedItem.billDate || 'None'}"`);
+      }
+      if (String(originalItem.poNumber || '').trim() !== String(updatedItem.poNumber || '').trim()) {
+        changes.push(`PO number changed from "${originalItem.poNumber || 'None'}" to "${updatedItem.poNumber || 'None'}"`);
+      }
       if (String(originalItem.imageUrl || '').trim() !== String(updatedItem.imageUrl || '').trim()) {
         changes.push(`image URL changed`);
       }
@@ -352,7 +361,7 @@ function App() {
   };
 
   // 🔹 Stock Transfer Handler
-  const handleStockTransfer = (itemId, sourceWh, targetWh, qty, notes) => {
+  const handleStockTransfer = (itemId, sourceWh, targetWh, qty, notes, billNumber = "", billDate = "", poNumber = "") => {
     const qtyNum = Number(qty);
     if (isNaN(qtyNum) || qtyNum <= 0) return;
 
@@ -386,7 +395,10 @@ function App() {
       finalItems[targetIdx] = {
         ...targetItem,
         quantity: nextQty,
-        total: nextQty * (Number(targetItem.price) || 0)
+        total: nextQty * (Number(targetItem.price) || 0),
+        billNumber: billNumber || targetItem.billNumber || "",
+        billDate: billDate || targetItem.billDate || "",
+        poNumber: poNumber || targetItem.poNumber || ""
       };
     } else {
       // Does not exist -> create new row duplicating details but with target warehouse & transfer quantity
@@ -396,7 +408,10 @@ function App() {
         warehouse: targetWh.trim(),
         quantity: qtyNum,
         total: qtyNum * (Number(sourceItem.price) || 0),
-        createdDate: String(Date.now())
+        createdDate: String(Date.now()),
+        billNumber: billNumber || sourceItem.billNumber || "",
+        billDate: billDate || sourceItem.billDate || "",
+        poNumber: poNumber || sourceItem.poNumber || ""
       };
       finalItems.push(newItem);
     }
@@ -606,8 +621,6 @@ function App() {
           setDarkMode={setDarkMode}
           lowStockItems={lowStockItems}
           pageTitle={getPageTitle()}
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
           onViewItem={(item) => {
             setSelectedItem(item);
             setViewModal(true);

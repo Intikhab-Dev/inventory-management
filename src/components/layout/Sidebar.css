@@ -35,6 +35,49 @@ body.dark .sidebar-brand {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* 🔹 TOGGLE COLLAPSE BUTTON */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 29px; /* centered vertically with the 42px tall brand logo */
+  right: 16px;
+  background: #f3f4f6;
+  border: none;
+  color: #374151;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1010;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+body.dark .sidebar-toggle-btn {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #e5e7eb;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+body.dark .sidebar-toggle-btn:hover {
+  background: #334155;
+  color: #818cf8;
+}
+
+/* Center it exactly on collapsed sidebar (width: 80px) */
+.sidebar.collapsed .sidebar-toggle-btn {
+  right: 24px;
+}
+
+
 .brand-logo {
   width: 42px;
   height: 42px;
@@ -261,20 +304,15 @@ body.dark .sidebar-toggle-btn-inner:hover {
 /* ── COLLAPSED SIDEBAR ── */
 .sidebar.collapsed {
   width: 80px;
+  padding-top: 70px; /* leave room for absolute positioned toggle button */
 }
 
 .sidebar.collapsed .brand-text,
 .sidebar.collapsed .sidebar-footer p,
 .sidebar.collapsed .version-tag,
-.sidebar.collapsed .link-label {
-  display: none !important;
-}
-
+.sidebar.collapsed .link-label,
 .sidebar.collapsed .sidebar-brand {
-  flex-direction: column;
-  justify-content: center;
-  padding: 20px 10px;
-  gap: 8px;
+  display: none !important;
 }
 
 .sidebar.collapsed .sidebar-toggle-btn-inner {
@@ -380,8 +418,9 @@ body.dark .sidebar-toggle-btn-inner:hover {
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
   }
 
-  .sidebar-brand {
-    display: none;
+  .sidebar-brand,
+  .sidebar-toggle-btn {
+    display: none !important;
   }
 
   .sidebar-menu {
@@ -434,4 +473,19 @@ body.dark .sidebar-toggle-btn-inner:hover {
   .sidebar-footer {
     display: none;
   }
+}
+
+/* ── CUSTOM SCROLLBARS FOR SIDEBAR ── */
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+body.dark .sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
 }

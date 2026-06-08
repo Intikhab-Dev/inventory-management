@@ -3,11 +3,11 @@ import "./ItemForm.css";
 
 // Read master lists from Settings (saved in localStorage)
 const STORAGE_KEY_CAT = "customCategories";
-const STORAGE_KEY_WH  = "customWarehouses";
+const STORAGE_KEY_WH = "customWarehouses";
 const STORAGE_KEY_SUP = "suppliers";
 
 const DEFAULT_CATEGORIES = ["Electronics", "Furniture", "Stationery", "Tools", "Clothing", "Food", "Medical", "Other"];
-const DEFAULT_WAREHOUSES  = ["Main Warehouse", "Secondary Warehouse", "Cold Storage"];
+const DEFAULT_WAREHOUSES = ["Main Warehouse", "Secondary Warehouse", "Cold Storage"];
 const DEFAULT_SUPPLIERS = [
     { id: 1, name: "ABC Traders", status: "active" },
     { id: 2, name: "XYZ Solutions", status: "active" },
@@ -34,6 +34,15 @@ const Field = ({ label, name, type = "text", placeholder, required, readOnly, fo
                 placeholder={placeholder}
                 value={form[name] ?? ""}
                 onChange={handleChange}
+                onClick={(e) => {
+                    if (type === "date" && typeof e.target.showPicker === "function") {
+                        try {
+                            e.target.showPicker();
+                        } catch (err) {
+                            console.error("showPicker failed", err);
+                        }
+                    }
+                }}
                 readOnly={readOnly}
                 className={`form-input ${errors[name] ? "is-invalid" : ""} ${readOnly ? "readonly-input" : ""}`}
             />
@@ -60,6 +69,9 @@ const ItemForm = ({ onAdd, editData }) => {
         status: "1",
         description: "",
         purchaseDate: "",
+        billNumber: "",
+        billDate: "",
+        poNumber: "",
         imageUrl: "",
         fileAttachment: null,
         createdDate: Date.now(),
@@ -69,13 +81,13 @@ const ItemForm = ({ onAdd, editData }) => {
     const [errors, setErrors] = useState({});
     const [fileError, setFileError] = useState("");
     const [categories, setCategories] = useState([]);
-    const [warehouses, setWarehouses]  = useState([]);
-    const [suppliers, setSuppliers]   = useState([]);
+    const [warehouses, setWarehouses] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
 
     // Load master lists on mount
     useEffect(() => {
         setCategories(loadList(STORAGE_KEY_CAT, DEFAULT_CATEGORIES));
-        setWarehouses(loadList(STORAGE_KEY_WH,  DEFAULT_WAREHOUSES));
+        setWarehouses(loadList(STORAGE_KEY_WH, DEFAULT_WAREHOUSES));
         try {
             const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_SUP));
             setSuppliers(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SUPPLIERS);
@@ -126,9 +138,9 @@ const ItemForm = ({ onAdd, editData }) => {
 
     useEffect(() => {
         const quantity = Number(form.quantity) || 0;
-        const price    = Number(form.price)    || 0;
-        const tax      = Number(form.tax)      || 0;
-        const total    = (quantity * price) + tax;
+        const price = Number(form.price) || 0;
+        const tax = Number(form.tax) || 0;
+        const total = (quantity * price) + tax;
 
         if (form.total !== total) {
             setForm((prev) => ({ ...prev, total }));
@@ -143,10 +155,10 @@ const ItemForm = ({ onAdd, editData }) => {
     const validate = (formObj = form) => {
         const tempErrors = {};
 
-        if (!formObj.name || !formObj.name.trim())           tempErrors.name          = "Item Name is required.";
-        if (!formObj.warehouse || !formObj.warehouse.trim())  tempErrors.warehouse     = "Warehouse is required.";
-        if (!formObj.category_type)                        tempErrors.category_type = "Category Type is required.";
-        if (!formObj.category || !formObj.category.trim())    tempErrors.category      = "Category is required.";
+        if (!formObj.name || !formObj.name.trim()) tempErrors.name = "Item Name is required.";
+        if (!formObj.warehouse || !formObj.warehouse.trim()) tempErrors.warehouse = "Warehouse is required.";
+        if (!formObj.category_type) tempErrors.category_type = "Category Type is required.";
+        if (!formObj.category || !formObj.category.trim()) tempErrors.category = "Category is required.";
 
         if (formObj.quantity === "" || formObj.quantity === null || formObj.quantity === undefined) {
             tempErrors.quantity = "Quantity is required.";
@@ -158,7 +170,7 @@ const ItemForm = ({ onAdd, editData }) => {
             if (Number(formObj.minThreshold) < 0) tempErrors.minThreshold = "Threshold cannot be negative.";
         }
 
-        if (!formObj.currency)                             tempErrors.currency  = "Currency is required.";
+        if (!formObj.currency) tempErrors.currency = "Currency is required.";
 
         if (formObj.price === "" || formObj.price === null || formObj.price === undefined) {
             tempErrors.price = "Price is required.";
@@ -172,10 +184,13 @@ const ItemForm = ({ onAdd, editData }) => {
             tempErrors.tax = "Tax cannot be negative.";
         }
 
-        if (!formObj.supplier || !formObj.supplier.trim())    tempErrors.supplier     = "Supplier Name is required.";
-        if (!formObj.code || !formObj.code.trim())            tempErrors.code         = "Item Code is required.";
-        if (!formObj.status)                               tempErrors.status       = "Status is required.";
-        if (!formObj.purchaseDate)                         tempErrors.purchaseDate = "Purchase Date is required.";
+        if (!formObj.supplier || !formObj.supplier.trim()) tempErrors.supplier = "Supplier Name is required.";
+        if (!formObj.code || !formObj.code.trim()) tempErrors.code = "Item Code is required.";
+        if (!formObj.status) tempErrors.status = "Status is required.";
+        if (!formObj.purchaseDate) tempErrors.purchaseDate = "Purchase Date is required.";
+        if (!formObj.billNumber || !formObj.billNumber.trim()) tempErrors.billNumber = "Bill Number is required.";
+        if (!formObj.billDate) tempErrors.billDate = "Bill Date is required.";
+        if (!formObj.poNumber || !formObj.poNumber.trim()) tempErrors.poNumber = "PO Number is required.";
 
         setErrors(tempErrors);
         return Object.keys(tempErrors).length === 0;
@@ -364,6 +379,14 @@ const ItemForm = ({ onAdd, editData }) => {
                         <i className="bi bi-calendar3 text-primary me-2"></i> Status & Dates
                     </div>
 
+                    <Field label="PO Number" name="poNumber" placeholder="e.g. PO-98765" required form={form} handleChange={handleChange} errors={errors} />
+
+                    <Field label="Purchase Date" name="purchaseDate" type="date" required form={form} handleChange={handleChange} errors={errors} />
+
+                    <Field label="Bill Number" name="billNumber" placeholder="e.g. BILL-12345" required form={form} handleChange={handleChange} errors={errors} />
+
+                    <Field label="Bill Date" name="billDate" type="date" required form={form} handleChange={handleChange} errors={errors} />
+
                     <div className="form-group">
                         <label className="form-label">
                             Status <span className="required-star">*</span>
@@ -372,22 +395,20 @@ const ItemForm = ({ onAdd, editData }) => {
                             <button
                                 type="button"
                                 className={`status-toggle-btn ${form.status === "1" ? "active-status" : ""}`}
-                                onClick={() => { setForm(f => ({ ...f, status: "1" })); setErrors(e => { const n={...e}; delete n.status; return n; }); }}
+                                onClick={() => { setForm(f => ({ ...f, status: "1" })); setErrors(e => { const n = { ...e }; delete n.status; return n; }); }}
                             >
                                 <i className="bi bi-check-circle-fill me-1"></i> Active
                             </button>
                             <button
                                 type="button"
                                 className={`status-toggle-btn inactive ${form.status === "0" ? "active-inactive" : ""}`}
-                                onClick={() => { setForm(f => ({ ...f, status: "0" })); setErrors(e => { const n={...e}; delete n.status; return n; }); }}
+                                onClick={() => { setForm(f => ({ ...f, status: "0" })); setErrors(e => { const n = { ...e }; delete n.status; return n; }); }}
                             >
                                 <i className="bi bi-x-circle-fill me-1"></i> Inactive
                             </button>
                         </div>
                         {errors.status && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.status}</span>}
                     </div>
-
-                    <Field label="Purchase Date" name="purchaseDate" type="date" required form={form} handleChange={handleChange} errors={errors} />
 
                     <div className="form-group">
                         <label className="form-label">Created Date</label>
