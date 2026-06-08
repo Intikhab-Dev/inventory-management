@@ -48,6 +48,60 @@ const Dashboard = ({ items, darkMode }) => {
     return [...unique].sort();
   }, [items]);
 
+  // Selected warehouse for visual layout
+  const [selectedLayoutWarehouse, setSelectedLayoutWarehouse] = useState("all");
+
+  // Sync with global warehouse filter
+  useEffect(() => {
+    if (warehouseFilter) {
+      setSelectedLayoutWarehouse(warehouseFilter);
+    }
+  }, [warehouseFilter]);
+
+  // Compute layout grid for selected warehouse
+  const layoutGrid = useMemo(() => {
+    const activeWh = selectedLayoutWarehouse || "all";
+
+    // Filter items in this warehouse
+    const whItems = items.filter((item) => {
+      if (activeWh === "all") return true;
+      return (item.warehouse || "").trim().toLowerCase() === activeWh.toLowerCase();
+    });
+
+    const rows = ["A", "B", "C", "D", "E"];
+    const cols = [1, 2, 3, 4, 5, 6];
+    const grid = [];
+
+    let itemIdx = 0;
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < cols.length; c++) {
+        const slotId = `${rows[r]}${cols[c]}`;
+        const item = whItems[itemIdx] || null;
+        itemIdx++;
+
+        let status = "empty";
+        if (item) {
+          const qty = Number(item.quantity);
+          const threshold = Number(item.minThreshold) || 5;
+          if (qty <= threshold) {
+            status = "low";
+          } else if (qty <= threshold * 2.5) {
+            status = "moderate";
+          } else {
+            status = "healthy";
+          }
+        }
+
+        grid.push({
+          slotId,
+          item,
+          status
+        });
+      }
+    }
+    return grid;
+  }, [selectedLayoutWarehouse, items]);
+
   const handleClearLogs = () => {
     if (window.confirm("Are you sure you want to clear all activity logs? This cannot be undone.")) {
       activityService.clearLogs();
@@ -1155,139 +1209,146 @@ const Dashboard = ({ items, darkMode }) => {
             </div>
           </div>
 
-          {/* SUPPLIER PERFORMANCE & ANALYTICS */}
-          <div className="suppliers-card card-box mt-4">
-            <div className="card-header">
-              <h3>
-                <i className="bi bi-person-lines-fill text-warning me-2"></i>
-                Supplier Performance & Analytics
-              </h3>
-            </div>
+          {/* ANALYTICS GRID - Supplier + Reorder side by side */}
+          <div className="analytics-grid">
 
-            <div className="table-responsive">
-              {supplierStats.length === 0 ? (
-                <p className="text-muted text-center py-3">No supplier data available</p>
-              ) : (
-                <table className="table-supplier-analytics">
-                  <thead>
-                    <tr>
-                      <th>Supplier Name</th>
-                      <th>Items Supplied</th>
-                      <th>Stock Valuation</th>
-                      <th>Valuation Share</th>
-                      <th>Active Status Ratio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {supplierStats.map((stat) => (
-                      <tr key={stat.name}>
-                        <td className="supplier-name-col">
-                          <strong>{stat.name}</strong>
-                        </td>
-                        <td>{stat.count} items</td>
-                        <td className="valuation-col">
-                          ₹ {stat.valuation.toLocaleString()}
-                        </td>
-                        <td>
-                          <div className="share-progress-container">
-                            <div
-                              className="share-progress-bar"
-                              style={{ width: `${stat.share}%` }}
-                            ></div>
-                            <span className="share-text">
-                              {stat.share.toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="status-ratio-badge">
-                            {stat.active} Active / {stat.inactive} Inactive
-                          </span>
-                        </td>
+            {/* SUPPLIER PERFORMANCE & ANALYTICS */}
+            <div className="suppliers-card card-box">
+              <div className="card-header">
+                <h3>
+                  <i className="bi bi-person-lines-fill text-warning me-2"></i>
+                  Supplier Performance & Analytics
+                </h3>
+              </div>
+
+              <div className="table-responsive">
+                {supplierStats.length === 0 ? (
+                  <p className="text-muted text-center py-3">No supplier data available</p>
+                ) : (
+                  <table className="table-supplier-analytics">
+                    <thead>
+                      <tr>
+                        <th>Supplier Name</th>
+                        <th>Items Supplied</th>
+                        <th>Stock Valuation</th>
+                        <th>Valuation Share</th>
+                        <th>Active Status Ratio</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
-          {/* PREDICTIVE REORDER FORECAST */}
-          <div className="suppliers-card card-box mt-4">
-            <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <h3>
-                <i className="bi bi-clock-fill text-primary me-2"></i>
-                Predictive Reorder Forecast
-              </h3>
-              <span className="status-ratio-badge">
-                Based on historic outbound demand rates
-              </span>
-            </div>
-
-            <div className="table-responsive">
-              {reorderForecast.length === 0 ? (
-                <p className="text-muted text-center py-3">No inventory items found to forecast</p>
-              ) : (
-                <table className="table-supplier-analytics">
-                  <thead>
-                    <tr>
-                      <th>Item Details</th>
-                      <th>Warehouse</th>
-                      <th>Current Stock</th>
-                      <th>Outflow Rate</th>
-                      <th>Est. Days Left</th>
-                      <th>Suggested Reorder Date</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reorderForecast.map((item) => {
-                      const daysDisplay = item.daysLeft === Infinity
-                        ? "—"
-                        : item.daysLeft <= 0
-                          ? "Immediate"
-                          : `${Math.ceil(item.daysLeft)} days`;
-                      const reorderDateDisplay = item.daysLeft === Infinity
-                        ? "—"
-                        : item.daysLeft <= 0
-                          ? "Immediate"
-                          : getSuggestedReorderDate(item.daysLeft);
-
-                      let daysStyle = {};
-                      if (item.daysLeft < 3) {
-                        daysStyle = { color: "#ef4444", fontWeight: "700" };
-                      } else if (item.daysLeft <= 10) {
-                        daysStyle = { color: "#f59e0b", fontWeight: "600" };
-                      } else {
-                        daysStyle = { color: "#22c55e", fontWeight: "600" };
-                      }
-
-                      return (
-                        <tr key={item.id}>
+                    </thead>
+                    <tbody>
+                      {supplierStats.map((stat) => (
+                        <tr key={stat.name}>
+                          <td className="supplier-name-col">
+                            <strong>{stat.name}</strong>
+                          </td>
+                          <td>{stat.count} items</td>
+                          <td className="valuation-col">
+                            ₹ {stat.valuation.toLocaleString()}
+                          </td>
                           <td>
-                            <div className="d-flex flex-column">
-                              <span className="supplier-name-col" style={{ fontWeight: "600" }}>{item.name}</span>
-                              <span className="text-muted" style={{ fontSize: "11px" }}>{item.code}</span>
+                            <div className="share-progress-container">
+                              <div
+                                className="share-progress-bar"
+                                style={{ width: `${stat.share}%` }}
+                              ></div>
+                              <span className="share-text">
+                                {stat.share.toFixed(1)}%
+                              </span>
                             </div>
                           </td>
-                          <td>{item.warehouse || "Unassigned"}</td>
-                          <td><strong>{item.quantity}</strong> units</td>
-                          <td>{item.dailyDemand.toFixed(2)} / day</td>
-                          <td style={daysStyle}>{daysDisplay}</td>
-                          <td>{reorderDateDisplay}</td>
                           <td>
-                            <span className={`action-tag ${item.statusClass}`}>
-                              {item.statusLabel}
+                            <span className="status-ratio-badge">
+                              {stat.active} Active / {stat.inactive} Inactive
                             </span>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
+
+            {/* PREDICTIVE REORDER FORECAST */}
+            <div className="suppliers-card card-box">
+              <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3>
+                  <i className="bi bi-clock-fill text-primary me-2"></i>
+                  Predictive Reorder Forecast
+                </h3>
+                <span className="status-ratio-badge">
+                  Based on historic outbound demand rates
+                </span>
+              </div>
+
+              <div className="table-responsive">
+                {reorderForecast.length === 0 ? (
+                  <p className="text-muted text-center py-3">No inventory items found to forecast</p>
+                ) : (
+                  <table className="table-supplier-analytics">
+                    <thead>
+                      <tr>
+                        <th>Item Details</th>
+                        <th>Warehouse</th>
+                        <th>Current Stock</th>
+                        <th>Outflow Rate</th>
+                        <th>Est. Days Left</th>
+                        <th>Suggested Reorder Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reorderForecast.map((item) => {
+                        const daysDisplay = item.daysLeft === Infinity
+                          ? "—"
+                          : item.daysLeft <= 0
+                            ? "Immediate"
+                            : `${Math.ceil(item.daysLeft)} days`;
+                        const reorderDateDisplay = item.daysLeft === Infinity
+                          ? "—"
+                          : item.daysLeft <= 0
+                            ? "Immediate"
+                            : getSuggestedReorderDate(item.daysLeft);
+
+                        let daysStyle = {};
+                        if (item.daysLeft < 3) {
+                          daysStyle = { color: "#ef4444", fontWeight: "700" };
+                        } else if (item.daysLeft <= 10) {
+                          daysStyle = { color: "#f59e0b", fontWeight: "600" };
+                        } else {
+                          daysStyle = { color: "#22c55e", fontWeight: "600" };
+                        }
+
+                        return (
+                          <tr key={item.id}>
+                            <td>
+                              <div className="d-flex flex-column">
+                                <span className="supplier-name-col" style={{ fontWeight: "600" }}>{item.name}</span>
+                                <span className="text-muted" style={{ fontSize: "11px" }}>{item.code}</span>
+                              </div>
+                            </td>
+                            <td>{item.warehouse || "Unassigned"}</td>
+                            <td><strong>{item.quantity}</strong> units</td>
+                            <td>{item.dailyDemand.toFixed(2)} / day</td>
+                            <td style={daysStyle}>{daysDisplay}</td>
+                            <td>{reorderDateDisplay}</td>
+                            <td>
+                              <span className={`action-tag ${item.statusClass}`}>
+                                {item.statusLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
           </div>
+
+
 
         </div>
 
@@ -1358,7 +1419,7 @@ const Dashboard = ({ items, darkMode }) => {
                         </p>
                         {tx.notes && (
                           <p className="flow-item-notes">
-                            "{tx.notes}"
+                            {tx.notes}
                           </p>
                         )}
                       </div>
@@ -1453,6 +1514,131 @@ const Dashboard = ({ items, darkMode }) => {
             </div>
           </div>
 
+        </div>
+
+        {/* VISUAL WAREHOUSE RACK LAYOUT & HEATMAP (col-12 style) */}
+        <div className="warehouse-layout-card card-box grid-col-12 mt-4">
+          <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h3>
+              <i className="bi bi-grid-3x3-gap text-success me-2"></i>
+              Warehouse Visual Rack Layout & Heatmap
+            </h3>
+            <div className="d-flex align-items-center gap-3 flex-wrap">
+              {/* Warehouse selector inside card */}
+              <select 
+                className="form-select layout-wh-select"
+                value={selectedLayoutWarehouse}
+                onChange={(e) => setSelectedLayoutWarehouse(e.target.value)}
+                disabled={warehouseFilter !== "all"}
+              >
+                <option value="all">All Warehouses</option>
+                {warehouses.map(w => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+              {warehouseFilter !== "all" && (
+                <span className="text-muted" style={{ fontSize: "12px" }}>
+                  Filtered by header
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="layout-card-body mt-3">
+            {/* Legend */}
+            <div className="layout-legend d-flex flex-wrap gap-3 mb-4">
+              <div className="legend-item">
+                <span className="legend-dot healthy"></span>
+                <span>Healthy Stock ({'>'} 2.5x threshold)</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot moderate"></span>
+                <span>Moderate Stock</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot low"></span>
+                <span>Low Stock (≤ threshold)</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot empty"></span>
+                <span>Empty Slot</span>
+              </div>
+            </div>
+
+            {/* Racks Grid container */}
+            {warehouses.length === 0 ? (
+              <p className="text-muted text-center py-4">No warehouses configured in settings.</p>
+            ) : (
+              <div className="racks-grid-container">
+                <div className="racks-grid">
+                  {layoutGrid.map((slot) => {
+                    const rowClass = "row-" + slot.slotId.charAt(0).toLowerCase();
+                    return (
+                      <div 
+                        key={slot.slotId} 
+                        className={`rack-slot-box ${slot.status} ${rowClass}`}
+                      >
+                        <div className="slot-id">{slot.slotId}</div>
+                        {slot.item ? (
+                          <div className="slot-content">
+                            <span className="item-initials">
+                              {slot.item.name.substring(0, 2).toUpperCase()}
+                            </span>
+                            <span className="item-qty-tag">
+                              {slot.item.quantity} units
+                            </span>
+                            
+                            {/* Hover Tooltip */}
+                            <div className="slot-tooltip">
+                              <div className="tooltip-title">{slot.item.name}</div>
+                              <div className="tooltip-sku">{slot.item.code}</div>
+                              <div className="tooltip-divider"></div>
+                              <div className="tooltip-info">
+                                <span>Category:</span>
+                                <strong>{slot.item.category || "General"}</strong>
+                              </div>
+                              <div className="tooltip-info">
+                                <span>Stock:</span>
+                                <strong className={`status-text ${slot.status}`}>
+                                  {slot.item.quantity} units
+                                </strong>
+                              </div>
+                              <div className="tooltip-info">
+                                <span>Min Safety:</span>
+                                <strong>{slot.item.minThreshold || 5} units</strong>
+                              </div>
+                              <div className="tooltip-info">
+                                <span>Outflow Rate:</span>
+                                <strong>{(slot.item.dailyDemand || 0).toFixed(2)}/day</strong>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="slot-empty-text">Empty</div>
+                            {/* Empty Slot Tooltip */}
+                            <div className="slot-tooltip">
+                              <div className="tooltip-title text-muted">Slot {slot.slotId}</div>
+                              <div className="tooltip-sku">Available Shelf Space</div>
+                              <div className="tooltip-divider"></div>
+                              <div className="tooltip-info">
+                                <span>Status:</span>
+                                <strong style={{ color: "#94a3b8" }}>Empty Slot</strong>
+                              </div>
+                              <div className="tooltip-info">
+                                <span>Action:</span>
+                                <strong style={{ color: "#818cf8" }}>Ready for stock</strong>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>

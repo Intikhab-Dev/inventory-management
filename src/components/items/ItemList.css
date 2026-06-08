@@ -36,6 +36,12 @@
   background: #ffffff;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
   position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+body.dark .table-wrapper {
+  scrollbar-color: #475569 transparent;
 }
 
 /* TABLE */

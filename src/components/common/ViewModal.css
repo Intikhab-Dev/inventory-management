@@ -55,13 +55,18 @@ body.dark .view-modal {
   color: #000;
 }
 
-/* SCROLLABLE MODAL BODY */
 .modal-body-scroll {
   flex: 1;
   overflow-y: auto;
   padding-right: 8px;
   margin-top: 10px;
   margin-bottom: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+body.dark .modal-body-scroll {
+  scrollbar-color: #475569 transparent;
 }
 
 .modal-body-scroll::-webkit-scrollbar {

@@ -127,11 +127,15 @@ body.dark .sidebar-toggle-btn-header:hover {
   height: 38px;
   border-radius: 10px;
   background: #f3f4f6;
+  border: none;
+  outline: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: 0.3s;
+  font-size: 16px;
+  color: #374151;
 }
 
 .icon-btn:hover {
@@ -568,4 +572,31 @@ body.dark .dismiss-all-btn:hover {
 
 body.dark .dismiss-single-btn:hover {
   background: rgba(239, 68, 68, 0.15);
+}
+
+/* Custom scrollbars for notifications list */
+.notifications-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.notifications-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notifications-list::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 99px;
+}
+
+body.dark .notifications-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.notifications-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+}
+
+body.dark .notifications-list {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }

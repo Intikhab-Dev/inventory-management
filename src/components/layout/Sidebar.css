@@ -476,16 +476,31 @@ body.dark .sidebar-toggle-btn-inner:hover {
 }
 
 /* ── CUSTOM SCROLLBARS FOR SIDEBAR ── */
-.sidebar::-webkit-scrollbar {
-  width: 4px;
+.sidebar::-webkit-scrollbar,
+.sidebar-menu::-webkit-scrollbar {
+  width: 5px;
 }
-.sidebar::-webkit-scrollbar-track {
+.sidebar::-webkit-scrollbar-track,
+.sidebar-menu::-webkit-scrollbar-track {
   background: transparent;
 }
-.sidebar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+.sidebar::-webkit-scrollbar-thumb,
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 99px;
 }
-body.dark .sidebar::-webkit-scrollbar-thumb {
+body.dark .sidebar::-webkit-scrollbar-thumb,
+body.dark .sidebar-menu::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
+}
+
+.sidebar,
+.sidebar-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+}
+
+body.dark .sidebar,
+body.dark .sidebar-menu {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }

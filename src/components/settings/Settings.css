@@ -260,3 +260,30 @@ body.dark .settings-flash {
 .animate-fade-in {
   animation: animate-fade-in 0.2s ease-out forwards;
 }
+
+/* Custom scrollbars for settings lists */
+.settings-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.settings-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-list::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 99px;
+}
+
+body.dark .settings-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.settings-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+}
+
+body.dark .settings-list {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}

@@ -335,3 +335,30 @@ body.dark .slm-log-note { color: #94a3b8; }
 
 body.dark .slm-log-icon.in  { background: #14532d; }
 body.dark .slm-log-icon.out { background: #450a0a; }
+
+/* Custom scrollbars for stock log list */
+.slm-log-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.slm-log-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slm-log-list::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 99px;
+}
+
+body.dark .slm-log-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.slm-log-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+}
+
+body.dark .slm-log-list {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
