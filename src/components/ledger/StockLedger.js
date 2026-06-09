@@ -215,10 +215,10 @@ const StockLedger = ({ items = [] }) => {
                                             hour12: true
                                         })}
                                     </td>
-                                    <td><code className="ledger-code-pill">{tx.itemId || "—"}</code></td>
+                                    <td><code className="text-nowrap ledger-code-pill">{tx.itemId || "—"}</code></td>
                                     <td><strong className="ledger-item-name">{tx.itemName}</strong></td>
                                     <td>
-                                        <span className={`ledger-badge ${tx.type === "IN" ? "lin" : "lout"}`}>
+                                        <span className={`text-nowrap ledger-badge ${tx.type === "IN" ? "lin" : "lout"}`}>
                                             {tx.type === "IN" ? "📥 INWARD" : "📤 OUTWARD"}
                                         </span>
                                     </td>

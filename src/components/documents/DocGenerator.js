@@ -59,6 +59,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const [customerName, setCustomerName] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
 
+    // Additional B2B & PO fields
+    const [customerGst, setCustomerGst] = useState("");
+    const [customerPhone, setCustomerPhone] = useState("");
+    const [customerEmail, setCustomerEmail] = useState("");
+    const [paymentMode, setPaymentMode] = useState("UPI");
+    const [refPoNumber, setRefPoNumber] = useState("");
+    const [shippingAddress, setShippingAddress] = useState("");
+    const [paymentTerms, setPaymentTerms] = useState("Net 30");
+    const [quoteRef, setQuoteRef] = useState("");
+
     // Selected Items Cart
     const [selectedItems, setSelectedItems] = useState([]);
 
@@ -79,6 +89,51 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
 
     // Validation errors
     const [errors, setErrors] = useState({});
+
+    // Tabs & History states
+    const [activeTab, setActiveTab] = useState("create"); // 'create' | 'history'
+    const [savedDocs, setSavedDocs] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("saved_documents")) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterType, setFilterType] = useState("all"); // 'all' | 'invoice' | 'po'
+    const [previewDoc, setPreviewDoc] = useState(null);
+    const [editingDocId, setEditingDocId] = useState(null);
+    const [alertConfig, setAlertConfig] = useState(null);
+
+    const showCustomAlert = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "alert",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                }
+            });
+        });
+    };
+
+    const showCustomConfirm = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "confirm",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                },
+                onCancel: () => {
+                    setAlertConfig(null);
+                    resolve(false);
+                }
+            });
+        });
+    };
 
     // Generate numeric item codes
     const generateItemCode = () => {
@@ -104,6 +159,9 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         const nextMonth = new Date();
         nextMonth.setDate(nextMonth.getDate() + 30);
         setDueDate(nextMonth.toISOString().split("T")[0]);
+
+        // Initial doc number
+        setDocNumber(generateDocNumber("invoice" === docType ? "INV" : "PO"));
     }, []);
 
     // Prefill Purchase Order when navigated via One-Click Stock Reorder System
@@ -176,17 +234,37 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         return () => clearTimeout(timer);
     }, [poPrefill, onClearPrefill]);
 
-    // Generate doc number when docType changes
-    useEffect(() => {
-        const prefix = docType === "invoice" ? "INV" : "PO";
+    // Manual docType change handler
+    const handleDocTypeChange = (newType) => {
+        if (newType === docType) return;
+        setDocType(newType);
+        const prefix = newType === "invoice" ? "INV" : "PO";
         setDocNumber(generateDocNumber(prefix));
         setSelectedItems([]);
         setErrors({});
-        setTerms(docType === "invoice" 
+        setEditingDocId(null);
+        setTerms(newType === "invoice" 
             ? "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within the due date.\n3. Subject to local jurisdiction." 
             : "1. Delivery must be made within 15 days of the order date.\n2. Items must match the specifications and UoM ordered.\n3. Invoice must reference this PO number."
         );
-    }, [docType]);
+    };
+
+    // Switch tabs and reset editor draft state to prevent stuck edit modes
+    const handleTabSwitch = (tabName) => {
+        if (tabName === activeTab) return;
+        
+        // Reset editor form inputs and items cart
+        setSelectedItems([]);
+        setCustomerName("");
+        setCustomerAddress("");
+        const prefix = docType === "invoice" ? "INV" : "PO";
+        setDocNumber(generateDocNumber(prefix));
+        setSyncInventory(false);
+        setErrors({});
+        setEditingDocId(null);
+        
+        setActiveTab(tabName);
+    };
 
     // Handle Item Selection changes to pre-populate details
     const handleItemSelection = (e) => {
@@ -222,7 +300,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     };
 
     // Add item to document list
-    const handleAddItem = (e) => {
+    const handleAddItem = async (e) => {
         e.preventDefault();
         const errs = {};
         if (!selectedItemId) errs.item = "Please select an item.";
@@ -252,7 +330,8 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             // Check if item code already exists in catalog
             const codeExists = items.some(itm => itm.code.trim().toLowerCase() === newItemCode.toLowerCase());
             if (codeExists) {
-                if (!window.confirm(`An item with Code "${newItemCode}" already exists in stock. Do you want to add it as a new line anyway?`)) {
+                const confirmed = await showCustomConfirm(`An item with Code "${newItemCode}" already exists in stock. Do you want to add it as a new line anyway?`);
+                if (!confirmed) {
                     return;
                 }
             }
@@ -271,7 +350,8 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                     .reduce((acc, curr) => acc + curr.quantity, 0);
 
                 if (alreadyAdded + Number(itemQty) > currentStock) {
-                    if (!window.confirm(`Warning: Invoiced quantity (${alreadyAdded + Number(itemQty)}) exceeds current stock in warehouse (${currentStock} ${product.uom || 'units'}). Do you still want to add it?`)) {
+                    const confirmed = await showCustomConfirm(`Warning: Invoiced quantity (${alreadyAdded + Number(itemQty)}) exceeds current stock in warehouse (${currentStock} ${product.uom || 'units'}). Do you still want to add it?`);
+                    if (!confirmed) {
                         return;
                     }
                 }
@@ -331,50 +411,63 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         window.print();
     };
 
-    // Clear document form
-    const handleReset = () => {
-        if (window.confirm("Are you sure you want to clear all fields?")) {
+    const handleReset = async () => {
+        const confirmed = await showCustomConfirm("Are you sure you want to clear all fields?");
+        if (confirmed) {
             setSelectedItems([]);
             setCustomerName("");
             setCustomerAddress("");
+            setCustomerGst("");
+            setCustomerPhone("");
+            setCustomerEmail("");
+            setPaymentMode("UPI");
+            setRefPoNumber("");
+            setShippingAddress("");
+            setPaymentTerms("Net 30");
+            setQuoteRef("");
             const prefix = docType === "invoice" ? "INV" : "PO";
             setDocNumber(generateDocNumber(prefix));
             setSyncInventory(false);
             setErrors({});
+            setEditingDocId(null);
         }
     };
 
     // Save and Sync Inventory handler
-    const handleSaveDocument = (e) => {
-        e.preventDefault();
+    const handleSaveDocument = async (e) => {
+        if (e) e.preventDefault();
         
         if (selectedItems.length === 0) {
-            alert("Please add at least one item to the document.");
+            await showCustomAlert("Please add at least one item to the document.");
             return;
         }
 
         if (!docDate) {
-            alert("Please enter Document Date.");
+            await showCustomAlert("Please enter Document Date.");
             return;
         }
 
         if (!dueDate) {
-            alert("Please enter Due Date.");
+            await showCustomAlert("Please enter Due Date.");
             return;
         }
 
         if (docType === "po" && !supplierName) {
-            alert("Please select a Supplier.");
+            await showCustomAlert("Please select a Supplier.");
             return;
         }
 
         if (docType === "invoice") {
             if (!customerName.trim()) {
-                alert("Please enter Customer Name.");
+                await showCustomAlert("Please enter Customer Name.");
+                return;
+            }
+            if (!customerPhone.trim()) {
+                await showCustomAlert("Please enter Customer Phone Number.");
                 return;
             }
             if (!customerAddress.trim()) {
-                alert("Please enter Customer Address.");
+                await showCustomAlert("Please enter Customer Address.");
                 return;
             }
         }
@@ -476,35 +569,368 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             );
         }
 
-        alert(`${docType === "po" ? "Purchase Order" : "Invoice"} #${docNumber} saved successfully!`);
+        const existingDocs = JSON.parse(localStorage.getItem("saved_documents")) || [];
+        
+        let updatedDocs;
+        if (editingDocId) {
+            // Update the existing document record in history
+            updatedDocs = existingDocs.map(d => {
+                if (d.id === editingDocId) {
+                    return {
+                        ...d,
+                        docNumber,
+                        docDate,
+                        dueDate,
+                        partyName: docType === "po" ? supplierName : customerName,
+                        partyAddress: docType === "po" ? (suppliers.find(s => s.name === supplierName)?.address || "") : customerAddress,
+                        customerGst: docType === "invoice" ? customerGst : "",
+                        customerPhone: docType === "invoice" ? customerPhone : "",
+                        customerEmail: docType === "invoice" ? customerEmail : "",
+                        paymentMode: docType === "invoice" ? paymentMode : "",
+                        refPoNumber: docType === "invoice" ? refPoNumber : "",
+                        shippingAddress: docType === "po" ? shippingAddress : "",
+                        paymentTerms: docType === "po" ? paymentTerms : "Net 30",
+                        quoteRef: docType === "po" ? quoteRef : "",
+                        items: [...selectedItems],
+                        terms,
+                        totalTaxable,
+                        totalTax,
+                        grandTotal,
+                        status: syncInventory ? "Done" : "Pending"
+                    };
+                }
+                return d;
+            });
+            setEditingDocId(null);
+        } else {
+            // Compile new document record for history registry (supporting both Invoice & PO)
+            const newDocRecord = {
+                id: "doc_" + Date.now(),
+                docType,
+                docNumber,
+                docDate,
+                dueDate,
+                partyName: docType === "po" ? supplierName : customerName,
+                partyAddress: docType === "po" ? (suppliers.find(s => s.name === supplierName)?.address || "") : customerAddress,
+                customerGst: docType === "invoice" ? customerGst : "",
+                customerPhone: docType === "invoice" ? customerPhone : "",
+                customerEmail: docType === "invoice" ? customerEmail : "",
+                paymentMode: docType === "invoice" ? paymentMode : "",
+                refPoNumber: docType === "invoice" ? refPoNumber : "",
+                shippingAddress: docType === "po" ? shippingAddress : "",
+                paymentTerms: docType === "po" ? paymentTerms : "Net 30",
+                quoteRef: docType === "po" ? quoteRef : "",
+                items: [...selectedItems],
+                terms,
+                totalTaxable,
+                totalTax,
+                grandTotal,
+                createdTimestamp: Date.now(),
+                status: syncInventory ? "Done" : "Pending"
+            };
+            updatedDocs = [newDocRecord, ...existingDocs];
+        }
+
+        localStorage.setItem("saved_documents", JSON.stringify(updatedDocs));
+        setSavedDocs(updatedDocs);
+
+        await showCustomAlert(`${docType === "po" ? "Purchase Order" : "Invoice"} #${docNumber} saved successfully!`);
         
         // Reset
         setSelectedItems([]);
         setCustomerName("");
         setCustomerAddress("");
+        setCustomerGst("");
+        setCustomerPhone("");
+        setCustomerEmail("");
+        setPaymentMode("UPI");
+        setRefPoNumber("");
+        setShippingAddress("");
+        setPaymentTerms("Net 30");
+        setQuoteRef("");
         const prefix = docType === "invoice" ? "INV" : "PO";
         setDocNumber(generateDocNumber(prefix));
         setSyncInventory(false);
         setErrors({});
     };
 
+    // Filter and search history logic
+    const filteredDocs = savedDocs.filter(doc => {
+        const matchesType = filterType === "all" || doc.docType === filterType;
+        const matchesQuery = !searchQuery.trim() || 
+            doc.docNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            doc.partyName.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesType && matchesQuery;
+    });
+
+    const handleDeleteDoc = async (id, e) => {
+        e.stopPropagation();
+        const confirmed = await showCustomConfirm("Are you sure you want to delete this document from history?");
+        if (confirmed) {
+            const updated = savedDocs.filter(d => d.id !== id);
+            localStorage.setItem("saved_documents", JSON.stringify(updated));
+            setSavedDocs(updated);
+        }
+    };
+
+    const handleClearAllHistory = async () => {
+        const confirmed = await showCustomConfirm("Are you sure you want to permanently delete ALL saved documents from your history? This action cannot be undone.");
+        if (confirmed) {
+            localStorage.removeItem("saved_documents");
+            setSavedDocs([]);
+            await showCustomAlert("All saved document history has been cleared.");
+        }
+    };
+
+    const handleLoadDocToEditor = async (doc, e) => {
+        e.stopPropagation();
+        const confirmed = await showCustomConfirm("Loading this document will overwrite your current draft in the editor. Do you want to proceed?");
+        if (confirmed) {
+            setDocType(doc.docType);
+            setDocNumber(doc.docNumber);
+            setDocDate(doc.docDate);
+            setDueDate(doc.dueDate);
+            if (doc.docType === "po") {
+                setSupplierName(doc.partyName);
+                setShippingAddress(doc.shippingAddress || "");
+                setPaymentTerms(doc.paymentTerms || "Net 30");
+                setQuoteRef(doc.quoteRef || "");
+                // Reset customer fields to empty to be safe
+                setCustomerName("");
+                setCustomerAddress("");
+                setCustomerGst("");
+                setCustomerPhone("");
+                setCustomerEmail("");
+                setPaymentMode("UPI");
+                setRefPoNumber("");
+            } else {
+                setCustomerName(doc.partyName);
+                setCustomerAddress(doc.partyAddress || "");
+                setCustomerGst(doc.customerGst || "");
+                setCustomerPhone(doc.customerPhone || "");
+                setCustomerEmail(doc.customerEmail || "");
+                setPaymentMode(doc.paymentMode || "UPI");
+                setRefPoNumber(doc.refPoNumber || "");
+                // Reset PO fields
+                setShippingAddress("");
+                setPaymentTerms("Net 30");
+                setQuoteRef("");
+            }
+            setSelectedItems(doc.items || []);
+            setTerms(doc.terms || "");
+            setSyncInventory(false); // don't auto-sync by default when re-editing
+            setEditingDocId(doc.id); // set edit mode!
+            setActiveTab("create");
+        }
+    };
+
+    const handleMarkDocDone = async (doc, e) => {
+        if (e) e.stopPropagation();
+
+        if (doc.status === "Done") {
+            await showCustomAlert("This document is already marked as Done.");
+            return;
+        }
+
+        const confirmMsg = `Are you sure you want to mark ${doc.docType === "po" ? "Purchase Order" : "Invoice"} #${doc.docNumber} as Done?\nThis will adjust inventory quantities and log transactions in the stock ledger.`;
+        const confirmed = await showCustomConfirm(confirmMsg);
+        if (!confirmed) return;
+
+        let inventoryCopy = [...items];
+        let hasError = false;
+
+        for (const docItem of doc.items) {
+            if (docItem.isCustom) {
+                // Check if it already exists by code
+                const existingIdx = inventoryCopy.findIndex(i => String(i.code).trim().toLowerCase() === String(docItem.code).trim().toLowerCase());
+                if (existingIdx !== -1) {
+                    const currentQty = Number(inventoryCopy[existingIdx].quantity) || 0;
+                    const nextQty = doc.docType === "po" ? currentQty + docItem.quantity : Math.max(0, currentQty - docItem.quantity);
+                    inventoryCopy[existingIdx] = {
+                        ...inventoryCopy[existingIdx],
+                        quantity: nextQty,
+                        total: nextQty * (Number(inventoryCopy[existingIdx].price) || 0)
+                    };
+                    
+                    transactionService.addTransaction({
+                        itemId: docItem.code,
+                        itemName: docItem.name,
+                        type: doc.docType === "po" ? "IN" : "OUT",
+                        qty: docItem.quantity,
+                        reason: doc.docType === "po" ? "Purchase Order Received" : "Sales Invoice Dispatched",
+                        notes: doc.docType === "po" 
+                            ? `PO #${doc.docNumber} (Supplier: ${doc.partyName})` 
+                            : `Invoice #${doc.docNumber} (Customer: ${doc.partyName})`,
+                        user: currentUser?.name || "System"
+                    });
+                } else {
+                    // Create new item in catalog
+                    const newItem = {
+                        id: Date.now() + Math.floor(Math.random() * 10000),
+                        name: docItem.name,
+                        code: docItem.code,
+                        warehouse: docItem.warehouse || "Main Warehouse",
+                        category_type: "Consumable",
+                        category: "Other",
+                        quantity: doc.docType === "po" ? docItem.quantity : 0,
+                        minThreshold: "5",
+                        currency: "INR",
+                        price: docItem.price,
+                        uom: docItem.uom,
+                        taxSlab: docItem.taxSlab,
+                        taxableAmount: docItem.taxableAmount,
+                        tax: docItem.taxAmount,
+                        total: docItem.totalAmount,
+                        supplier: doc.docType === "po" ? doc.partyName : "Direct Customer",
+                        status: "1",
+                        description: `Auto-created from PO #${doc.docNumber}`,
+                        purchaseDate: doc.docDate,
+                        billNumber: doc.docNumber,
+                        billDate: doc.docDate,
+                        poNumber: doc.docType === "po" ? doc.docNumber : "",
+                        createdDate: Date.now()
+                    };
+                    inventoryCopy.push(newItem);
+
+                    transactionService.addTransaction({
+                        itemId: docItem.code,
+                        itemName: docItem.name,
+                        type: doc.docType === "po" ? "IN" : "OUT",
+                        qty: docItem.quantity,
+                        reason: doc.docType === "po" ? "Purchase Order Received (New Item)" : "Sales Invoice Dispatched",
+                        notes: doc.docType === "po" 
+                            ? `PO #${doc.docNumber} (Supplier: ${doc.partyName})` 
+                            : `Invoice #${doc.docNumber} (Customer: ${doc.partyName})`,
+                        user: currentUser?.name || "System"
+                    });
+                }
+            } else {
+                // Existing item
+                const targetIdx = inventoryCopy.findIndex(i => String(i.id) === String(docItem.itemId));
+                if (targetIdx !== -1) {
+                    const currentQty = Number(inventoryCopy[targetIdx].quantity) || 0;
+                    let nextQty = currentQty;
+
+                    if (doc.docType === "po") {
+                        nextQty = currentQty + docItem.quantity;
+                    } else {
+                        nextQty = Math.max(0, currentQty - docItem.quantity);
+                    }
+
+                    inventoryCopy[targetIdx] = {
+                        ...inventoryCopy[targetIdx],
+                        quantity: nextQty,
+                        total: nextQty * (Number(inventoryCopy[targetIdx].price) || 0)
+                    };
+
+                    transactionService.addTransaction({
+                        itemId: docItem.code,
+                        itemName: docItem.name,
+                        type: doc.docType === "po" ? "IN" : "OUT",
+                        qty: docItem.quantity,
+                        reason: doc.docType === "po" ? "Purchase Order Received" : "Sales Invoice Dispatched",
+                        notes: doc.docType === "po" 
+                            ? `PO #${doc.docNumber} (Supplier: ${doc.partyName})` 
+                            : `Invoice #${doc.docNumber} (Customer: ${doc.partyName})`,
+                        user: currentUser?.name || "System"
+                    });
+                } else {
+                    // Try to find by code if id changed
+                    const backupIdx = inventoryCopy.findIndex(i => String(i.code).trim().toLowerCase() === String(docItem.code).trim().toLowerCase());
+                    if (backupIdx !== -1) {
+                        const currentQty = Number(inventoryCopy[backupIdx].quantity) || 0;
+                        const nextQty = doc.docType === "po" ? currentQty + docItem.quantity : Math.max(0, currentQty - docItem.quantity);
+                        
+                        inventoryCopy[backupIdx] = {
+                            ...inventoryCopy[backupIdx],
+                            quantity: nextQty,
+                            total: nextQty * (Number(inventoryCopy[backupIdx].price) || 0)
+                        };
+                        
+                        transactionService.addTransaction({
+                            itemId: docItem.code,
+                            itemName: docItem.name,
+                            type: doc.docType === "po" ? "IN" : "OUT",
+                            qty: docItem.quantity,
+                            reason: doc.docType === "po" ? "Purchase Order Received" : "Sales Invoice Dispatched",
+                            notes: doc.docType === "po" 
+                                ? `PO #${doc.docNumber} (Supplier: ${doc.partyName})` 
+                                : `Invoice #${doc.docNumber} (Customer: ${doc.partyName})`,
+                            user: currentUser?.name || "System"
+                        });
+                    } else {
+                        await showCustomAlert(`Item "${docItem.name}" (Code: ${docItem.code}) not found in inventory! Cannot adjust stock.`);
+                        hasError = true;
+                    }
+                }
+            }
+        }
+
+        if (hasError) return;
+
+        onUpdateItems(inventoryCopy);
+
+        const updated = savedDocs.map(d => {
+            if (d.id === doc.id) {
+                return { ...d, status: "Done" };
+            }
+            return d;
+        });
+
+        localStorage.setItem("saved_documents", JSON.stringify(updated));
+        setSavedDocs(updated);
+
+        activityService.addLog(
+            "update_item",
+            `Marked ${doc.docType.toUpperCase()} #${doc.docNumber} as Done. Inventory quantities synced.`,
+            currentUser?.name
+        );
+
+        await showCustomAlert(`${doc.docType === "po" ? "Purchase Order" : "Invoice"} #${doc.docNumber} marked as Done successfully!`);
+    };
+
     return (
-        <div className="doc-wrapper">
+        <div className="doc-page-container">
+            {/* Top Navigation Tabs */}
+            <div className="doc-page-tabs no-print">
+                <button
+                    type="button"
+                    className={`page-tab-btn ${activeTab === "create" ? "active" : ""}`}
+                    onClick={() => handleTabSwitch("create")}
+                >
+                    <i className="bi bi-file-earmark-plus-fill me-2"></i> Create Document
+                </button>
+                <button
+                    type="button"
+                    className={`page-tab-btn ${activeTab === "history" ? "active" : ""}`}
+                    onClick={() => handleTabSwitch("history")}
+                >
+                    <i className="bi bi-folder-fill me-2"></i> Saved Documents History ({savedDocs.length})
+                </button>
+            </div>
+
+            {activeTab === "create" ? (
+                <div className="doc-wrapper">
             {/* Left Column: Input Form (Form Editor) */}
             <div className="form-editor-panel no-print">
                 <div className="doc-section-card">
+                    {editingDocId && (
+                        <div className="editing-indicator mb-3 text-warning" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+                            <i className="bi bi-pencil-square"></i> Editing Document: {docNumber} (Saving will update the existing entry)
+                        </div>
+                    )}
                     <div className="doc-type-toggle">
                         <button
                             type="button"
                             className={`toggle-btn ${docType === "invoice" ? "active" : ""}`}
-                            onClick={() => setDocType("invoice")}
+                            onClick={() => handleDocTypeChange("invoice")}
                         >
                             <i className="bi bi-receipt-cutoff me-1"></i> Sales Invoice
                         </button>
                         <button
                             type="button"
                             className={`toggle-btn ${docType === "po" ? "active" : ""}`}
-                            onClick={() => setDocType("po")}
+                            onClick={() => handleDocTypeChange("po")}
                         >
                             <i className="bi bi-cart-check-fill me-1"></i> Purchase Order (PO)
                         </button>
@@ -552,20 +978,55 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         </div>
 
                         {docType === "po" ? (
-                            <div className="form-group">
-                                <label className="form-label">Supplier <span className="required-star">*</span></label>
-                                <select
-                                    className="form-input"
-                                    value={supplierName}
-                                    onChange={(e) => setSupplierName(e.target.value)}
-                                >
-                                    {suppliers.map(sup => (
-                                        <option key={sup.id || sup.name} value={sup.name}>
-                                            {sup.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <>
+                                <div className="form-group">
+                                    <label className="form-label">Supplier <span className="required-star">*</span></label>
+                                    <select
+                                        className="form-input"
+                                        value={supplierName}
+                                        onChange={(e) => setSupplierName(e.target.value)}
+                                    >
+                                        {suppliers.map(sup => (
+                                            <option key={sup.id || sup.name} value={sup.name}>
+                                                {sup.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Quote Reference</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. QT-93802"
+                                        value={quoteRef}
+                                        onChange={(e) => setQuoteRef(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Payment Terms</label>
+                                    <select
+                                        className="form-input"
+                                        value={paymentTerms}
+                                        onChange={(e) => setPaymentTerms(e.target.value)}
+                                    >
+                                        <option value="Immediate">Immediate</option>
+                                        <option value="Net 15">Net 15 Days</option>
+                                        <option value="Net 30">Net 30 Days</option>
+                                        <option value="COD">Cash on Delivery (COD)</option>
+                                        <option value="Advance">Advance Payment</option>
+                                    </select>
+                                </div>
+                                <div className="form-group full-row">
+                                    <label className="form-label">Shipping / Delivery Address</label>
+                                    <textarea
+                                        className="form-input form-textarea-mini"
+                                        placeholder="Enter target warehouse shipping destination"
+                                        value={shippingAddress}
+                                        onChange={(e) => setShippingAddress(e.target.value)}
+                                    />
+                                </div>
+                            </>
                         ) : (
                             <>
                                 <div className="form-group">
@@ -577,6 +1038,49 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                         value={customerName}
                                         onChange={(e) => setCustomerName(e.target.value)}
                                     />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Customer GSTIN</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. 09AAAAA1111A1Z1"
+                                        value={customerGst}
+                                        onChange={(e) => setCustomerGst(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Customer Phone <span className="required-star">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. +91 9988776655"
+                                        value={customerPhone}
+                                        onChange={(e) => setCustomerPhone(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Customer Email</label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        placeholder="e.g. client@example.com"
+                                        value={customerEmail}
+                                        onChange={(e) => setCustomerEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Payment Mode</label>
+                                    <select
+                                        className="form-input"
+                                        value={paymentMode}
+                                        onChange={(e) => setPaymentMode(e.target.value)}
+                                    >
+                                        <option value="UPI">UPI / GPay</option>
+                                        <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Card">Credit/Debit Card</option>
+                                    </select>
                                 </div>
                                 <div className="form-group full-row">
                                     <label className="form-label">Customer Address <span className="required-star">*</span></label>
@@ -592,8 +1096,8 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                     </form>
                 </div>
 
-                {/* Cart Selector Panel */}
-                <div className="doc-section-card mt-3">
+                <div className="doc-section-card">
+                    {/* Cart Selector Panel */}
                     <h5 className="section-card-title">
                         <i className="bi bi-plus-circle-fill text-primary me-2"></i> Add Items
                     </h5>
@@ -712,11 +1216,11 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             <i className="bi bi-cart-plus-fill me-1"></i> Add to Document List
                         </button>
                     </form>
-                </div>
 
                 {/* Cart Items Table */}
                 {selectedItems.length > 0 && (
-                    <div className="doc-section-card mt-3">
+                    <>
+                        <div className="section-divider"></div>
                         <h5 className="section-card-title">Added Items List</h5>
                         <div className="table-responsive">
                             <table className="doc-item-table">
@@ -759,12 +1263,14 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </>
                 )}
 
+                {/* Divider */}
+                <div className="section-divider"></div>
+
                 {/* Final Settings & Save Panel */}
-                <div className="doc-section-card mt-3">
-                    <div className="form-group full-row">
+                <div className="form-group full-row">
                         <label className="form-label">Terms & Conditions</label>
                         <textarea
                             className="form-input form-textarea-mini"
@@ -802,14 +1308,14 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         </button>
                         <button
                             type="button"
-                            className="doc-btn btn-print"
+                            className="doc-btn btn-print text-nowrap"
                             onClick={handlePrint}
                         >
                             <i className="bi bi-printer-fill me-1"></i> Print / Save PDF
                         </button>
                         <button
                             type="button"
-                            className="doc-btn btn-primary"
+                            className="doc-btn btn-primary text-nowrap"
                             onClick={handleSaveDocument}
                         >
                             <i className="bi bi-check-circle-fill me-1"></i> Save & Record Doc
@@ -870,11 +1376,24 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             <p>Registered supplier contact details and warehouse logs are active.</p>
                                         );
                                     })()}
+                                    {shippingAddress && (
+                                        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px', textAlign: 'left' }}>SHIP TO:</span>
+                                            <p className="pre-wrap" style={{ margin: 0, textAlign: 'left' }}>{shippingAddress}</p>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="party-details">
                                     <strong>{customerName || "Customer Name"}</strong>
                                     <p className="pre-wrap">{customerAddress || "Customer address details go here..."}</p>
+                                    {(customerPhone || customerEmail) && (
+                                        <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '11.5px', textAlign: 'left' }}>
+                                            {customerPhone && <>Phone: {customerPhone}<br /></>}
+                                            {customerEmail && <>Email: {customerEmail}</>}
+                                        </p>
+                                    )}
+                                    {customerGst && <p style={{ marginTop: '6px', fontSize: '11px', color: '#475569', textAlign: 'left' }}><strong>GSTIN:</strong> {customerGst}</p>}
                                 </div>
                             )}
                         </div>
@@ -893,8 +1412,26 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Payment Terms:</span>
-                                <span className="meta-value">Net 30 Days</span>
+                                <span className="meta-value">{docType === "po" ? (paymentTerms || "Net 30") : "Net 30 Days"}</span>
                             </div>
+                            {docType === "po" && quoteRef && (
+                                <div className="meta-row">
+                                    <span className="meta-label">Quote Ref:</span>
+                                    <span className="meta-value">{quoteRef}</span>
+                                </div>
+                            )}
+                            {docType === "invoice" && paymentMode && (
+                                <div className="meta-row">
+                                    <span className="meta-label">Payment Mode:</span>
+                                    <span className="meta-value">{paymentMode}</span>
+                                </div>
+                            )}
+                            {docType === "invoice" && refPoNumber && (
+                                <div className="meta-row">
+                                    <span className="meta-label">PO Ref:</span>
+                                    <span className="meta-value">{refPoNumber}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -982,6 +1519,433 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                     </div>
                 </div>
             </div>
+                </div>
+            ) : (
+                <div className="doc-history-container animate-fade-in no-print">
+                    <div className="history-header">
+                        <h4 className="section-card-title">
+                            <i className="bi bi-clock-history me-2 text-primary"></i>
+                            Saved Invoices & POs History
+                        </h4>
+                        {savedDocs.length > 0 && (
+                            <button
+                                type="button"
+                                className="doc-btn btn-secondary text-danger"
+                                onClick={handleClearAllHistory}
+                                style={{ flex: 'none', padding: '6px 12px', fontSize: '12.5px', height: 'fit-content' }}
+                            >
+                                <i className="bi bi-trash3-fill me-1"></i> Clear All History
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="history-search-row">
+                        <div className="search-input-box">
+                            <i className="bi bi-search search-icon"></i>
+                            <input
+                                type="text"
+                                className="form-input search-field"
+                                placeholder="Search by doc number, client, or supplier..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div className="filter-buttons">
+                            <button
+                                type="button"
+                                className={`filter-btn ${filterType === "all" ? "active" : ""}`}
+                                onClick={() => setFilterType("all")}
+                            >
+                                All Docs
+                            </button>
+                            <button
+                                type="button"
+                                className={`filter-btn ${filterType === "invoice" ? "active" : ""}`}
+                                onClick={() => setFilterType("invoice")}
+                            >
+                                Invoices
+                            </button>
+                            <button
+                                type="button"
+                                className={`filter-btn ${filterType === "po" ? "active" : ""}`}
+                                onClick={() => setFilterType("po")}
+                            >
+                                Purchase Orders
+                            </button>
+                        </div>
+                    </div>
+
+                        {filteredDocs.length === 0 ? (
+                            <div className="empty-history text-center py-5">
+                                <i className="bi bi-folder-x text-muted" style={{ fontSize: '48px' }}></i>
+                                <h5 className="mt-3 text-secondary">No records found</h5>
+                                <p className="text-muted">Create and save document records under the "Create Document" tab.</p>
+                            </div>
+                        ) : (
+                            <div className="history-grid">
+                                {filteredDocs.map((doc) => (
+                                    <div key={doc.id} className="history-card">
+                                        <div className="history-card-top">
+                                            <span className={`text-nowrap doc-type-pill ${doc.docType}`}>
+                                                {doc.docType === "po" ? (
+                                                    <><i className="bi bi-cart-check-fill me-1"></i> PO</>
+                                                ) : (
+                                                    <><i className="bi bi-receipt me-1"></i> INV</>
+                                                )}
+                                            </span>
+                                            <span className={`text-nowrap doc-status-pill ${(doc.status || "Done").toLowerCase()}`}>
+                                                {doc.status || "Done"}
+                                            </span>
+                                            <span className="text-nowrap doc-date-text">
+                                                {new Date(doc.createdTimestamp).toLocaleDateString("en-IN", {
+                                                    day: '2-digit', month: 'short', year: 'numeric'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <div className="history-card-body">
+                                            <h4 className="text-nowrap doc-num-title">{doc.docNumber}</h4>
+                                            <div className="history-meta-info">
+                                                <div className="info-row">
+                                                    <span className="info-lbl">Party:</span>
+                                                    <span className="info-val"><strong>{doc.partyName}</strong></span>
+                                                </div>
+                                                <div className="info-row">
+                                                    <span className="info-lbl">Due Date:</span>
+                                                    <span className="info-val">{doc.dueDate}</span>
+                                                </div>
+                                                <div className="info-row">
+                                                    <span className="info-lbl">Items count:</span>
+                                                    <span className="info-val">{doc.items?.length || 0} line items</span>
+                                                </div>
+                                                <div className="info-row total-row">
+                                                    <span className="info-lbl">Grand Total:</span>
+                                                    <span className="info-val total-amt-text">₹{doc.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Compact Items List for History Card */}
+                                            <div className="history-card-items-section">
+                                                <div className="history-items-header">
+                                                    <span>Item Details</span>
+                                                    <span>Qty × Price = Total</span>
+                                                </div>
+                                                <div className="history-items-list">
+                                                    {doc.items && doc.items.length > 0 ? (
+                                                        doc.items.map((item, idx) => (
+                                                            <div key={idx} className="history-item-row">
+                                                                <div className="h-item-info">
+                                                                    <span className="h-item-name" title={item.name}>{item.name}</span>
+                                                                    <small className="h-item-code">{item.code}</small>
+                                                                </div>
+                                                                <div className="h-item-pricing">
+                                                                    <span className="h-item-qty">{item.quantity} {item.uom} × ₹{item.price.toLocaleString("en-IN")}</span>
+                                                                    <strong className="h-item-total-val">₹{(item.quantity * item.price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="history-item-empty">No items added</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="history-card-actions">
+                                            {(doc.status || "Done") === "Pending" && (
+                                                <button
+                                                    type="button"
+                                                    className="history-action-btn done text-nowrap"
+                                                    onClick={(e) => handleMarkDocDone(doc, e)}
+                                                    title="Mark as Done & Sync Inventory"
+                                                >
+                                                    <i className="bi bi-check-circle-fill me-1"></i> Done
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="history-action-btn view text-nowrap"
+                                                onClick={() => setPreviewDoc(doc)}
+                                                title="View & Re-print"
+                                            >
+                                                <i className="bi bi-printer-fill me-1"></i> Re-print
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="history-action-btn edit text-nowrap"
+                                                onClick={(e) => handleLoadDocToEditor(doc, e)}
+                                                title="Load into Editor"
+                                            >
+                                                <i className="bi bi-pencil-square me-1"></i> Edit / Load
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="history-action-btn delete"
+                                                onClick={(e) => handleDeleteDoc(doc.id, e)}
+                                                title="Delete from history"
+                                            >
+                                                <i className="bi bi-trash3-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+            )}
+
+            {/* Live Printable Preview Modal */}
+            {previewDoc && (
+                <div className="doc-modal-overlay" onClick={() => setPreviewDoc(null)}>
+                    <div className="doc-modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="doc-modal-header no-print">
+                            <span className="modal-title">
+                                <i className="bi bi-file-earmark-text-fill text-primary me-2"></i>
+                                Document Preview - {previewDoc.docNumber}
+                            </span>
+                            <div className="doc-modal-actions-group">
+                                <button
+                                    type="button"
+                                    className="doc-btn btn-print text-nowrap"
+                                    onClick={() => {
+                                        document.body.classList.add("printing-modal");
+                                        window.print();
+                                        document.body.classList.remove("printing-modal");
+                                    }}
+                                >
+                                    <i className="bi bi-printer-fill me-1"></i> Print / Save PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    className="doc-btn btn-secondary"
+                                    onClick={() => setPreviewDoc(null)}
+                                >
+                                    <i className="bi bi-x-lg"></i> Close
+                                </button>
+                            </div>
+                        </div>
+                        <div className="doc-modal-body">
+                            {/* Render Preview Card inside Modal */}
+                            <div className="invoice-preview-card printable-card">
+                                {/* Invoice Letterhead */}
+                                <div className="preview-letterhead">
+                                    <div className="letterhead-company">
+                                        <div className="company-logo-preview">
+                                            <i className="bi bi-box-seam-fill"></i>
+                                        </div>
+                                        <div>
+                                            <h2 className="company-title">IMS Pro Logistics Ltd.</h2>
+                                            <p className="company-details">
+                                                Sector 62, Noida Industrial Hub, UP, 201301<br />
+                                                Email: contact@imspro.logistics.com | Phone: +91-9988776655<br />
+                                                <strong>GSTIN: 09AAAAA1111A1Z1</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="letterhead-doc-type">
+                                        <h1>{previewDoc.docType === "invoice" ? "TAX INVOICE" : "PURCHASE ORDER"}</h1>
+                                        <div className="doc-stamp">ORIGINAL</div>
+                                    </div>
+                                </div>
+
+                                <div className="preview-divider"></div>
+
+                                {/* Parties Section */}
+                                <div className="preview-parties-grid">
+                                    <div className="party-box">
+                                        <span className="party-header">{previewDoc.docType === "invoice" ? "BILL TO (CUSTOMER)" : "ORDER TO (SUPPLIER)"}</span>
+                                        {previewDoc.docType === "po" ? (
+                                            <div className="party-details">
+                                                <strong>{previewDoc.partyName}</strong>
+                                                <p>{previewDoc.partyAddress || "Registered supplier contact details and warehouse logs are active."}</p>
+                                                {previewDoc.shippingAddress && (
+                                                    <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1' }}>
+                                                        <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px', textAlign: 'left' }}>SHIP TO:</span>
+                                                        <p className="pre-wrap" style={{ margin: 0, textAlign: 'left' }}>{previewDoc.shippingAddress}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="party-details">
+                                                <strong>{previewDoc.partyName}</strong>
+                                                <p className="pre-wrap">{previewDoc.partyAddress}</p>
+                                                {(previewDoc.customerPhone || previewDoc.customerEmail) && (
+                                                    <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '11.5px', textAlign: 'left' }}>
+                                                        {previewDoc.customerPhone && <>Phone: {previewDoc.customerPhone}<br /></>}
+                                                        {previewDoc.customerEmail && <>Email: {previewDoc.customerEmail}</>}
+                                                    </p>
+                                                )}
+                                                {previewDoc.customerGst && <p style={{ marginTop: '4px', fontSize: '11px', color: '#475569', textAlign: 'left' }}><strong>GSTIN:</strong> {previewDoc.customerGst}</p>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="party-box text-end">
+                                        <div className="meta-row">
+                                            <span className="meta-label">{previewDoc.docType === "invoice" ? "Invoice No:" : "PO Number:"}</span>
+                                            <strong className="meta-value">{previewDoc.docNumber}</strong>
+                                        </div>
+                                        <div className="meta-row">
+                                            <span className="meta-label">Date:</span>
+                                            <span className="meta-value">{previewDoc.docDate}</span>
+                                        </div>
+                                        <div className="meta-row">
+                                            <span className="meta-label">Due Date:</span>
+                                            <span className="meta-value">{previewDoc.dueDate}</span>
+                                        </div>
+                                        <div className="meta-row">
+                                            <span className="meta-label">Payment Terms:</span>
+                                            <span className="meta-value">{previewDoc.docType === "po" ? (previewDoc.paymentTerms || "Net 30") : "Net 30 Days"}</span>
+                                        </div>
+                                        {previewDoc.docType === "po" && previewDoc.quoteRef && (
+                                            <div className="meta-row">
+                                                <span className="meta-label">Quote Ref:</span>
+                                                <span className="meta-value">{previewDoc.quoteRef}</span>
+                                            </div>
+                                        )}
+                                        {previewDoc.docType === "invoice" && previewDoc.paymentMode && (
+                                            <div className="meta-row">
+                                                <span className="meta-label">Payment Mode:</span>
+                                                <span className="meta-value">{previewDoc.paymentMode}</span>
+                                            </div>
+                                        )}
+                                        {previewDoc.docType === "invoice" && previewDoc.refPoNumber && (
+                                            <div className="meta-row">
+                                                <span className="meta-label">PO Ref:</span>
+                                                <span className="meta-value">{previewDoc.refPoNumber}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Table Section */}
+                                <div className="preview-table-container">
+                                    <table className="preview-item-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: "6%" }}>S.No</th>
+                                                <th>Description / Item Details</th>
+                                                <th style={{ width: "12%" }} className="text-end">Qty</th>
+                                                <th style={{ width: "8%" }}>Unit</th>
+                                                <th style={{ width: "14%" }} className="text-end">Price (₹)</th>
+                                                <th style={{ width: "12%" }}>GST Slab</th>
+                                                <th style={{ width: "14%" }} className="text-end">GST Tax (₹)</th>
+                                                <th style={{ width: "16%" }} className="text-end">Amount (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {previewDoc.items && previewDoc.items.length > 0 ? (
+                                                previewDoc.items.map((itm, index) => (
+                                                    <tr key={itm.id}>
+                                                        <td className="text-center">{index + 1}</td>
+                                                        <td>
+                                                            <div className="preview-item-name">{itm.name}</div>
+                                                            <small className="preview-item-desc">Code: {itm.code} • WH: {itm.warehouse}</small>
+                                                        </td>
+                                                        <td className="text-end">{itm.quantity.toLocaleString()}</td>
+                                                        <td>{itm.uom}</td>
+                                                        <td className="text-end">{itm.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                        <td>{itm.taxSlab}</td>
+                                                        <td className="text-end">{itm.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                        <td className="text-end">{itm.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="8" className="empty-table-placeholder">No items</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Footer Calculations */}
+                                <div className="preview-summary-container">
+                                    <div className="terms-col">
+                                        <span className="summary-section-title">Terms & Conditions</span>
+                                        <p className="pre-wrap terms-text">{previewDoc.terms}</p>
+                                    </div>
+                                    <div className="calc-col">
+                                        <div className="calc-row">
+                                            <span>Subtotal (Taxable Amt):</span>
+                                            <strong>₹{previewDoc.totalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                                        </div>
+                                        <div className="calc-row">
+                                            <span>CGST Amount:</span>
+                                            <span>₹{Math.round((previewDoc.totalTax / 2) * 100) / 100}</span>
+                                        </div>
+                                        <div className="calc-row">
+                                            <span>SGST Amount:</span>
+                                            <span>₹{Math.round((previewDoc.totalTax / 2) * 100) / 100}</span>
+                                        </div>
+                                        <div className="calc-row divider"></div>
+                                        <div className="calc-row grand-total">
+                                            <span>Grand Total:</span>
+                                            <span>₹{previewDoc.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Signature block */}
+                                <div className="preview-signature-block">
+                                    <div className="signature-col">
+                                        <p>Receiver's Signature</p>
+                                        <div className="signature-line"></div>
+                                    </div>
+                                    <div className="signature-col text-end">
+                                        <p>For IMS Pro Logistics Ltd.</p>
+                                        <br /><br />
+                                        <p><strong>Authorised Signatory</strong></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Alert/Confirm Dialog Popup */}
+            {alertConfig && (
+                <div className="custom-alert-overlay no-print">
+                    <div className="custom-alert-card animate-scale-up">
+                        <div className="custom-alert-icon">
+                            {alertConfig.type === "confirm" ? (
+                                <i className="bi bi-exclamation-triangle-fill text-warning"></i>
+                            ) : (
+                                <i className="bi bi-info-circle-fill text-primary"></i>
+                            )}
+                        </div>
+                        <div className="custom-alert-body">
+                            <p className="custom-alert-message">{alertConfig.message}</p>
+                        </div>
+                        <div className="custom-alert-actions">
+                            {alertConfig.type === "confirm" ? (
+                                <>
+                                    <button 
+                                        type="button" 
+                                        className="alert-btn btn-cancel" 
+                                        onClick={alertConfig.onCancel}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="alert-btn btn-confirm" 
+                                        onClick={alertConfig.onConfirm}
+                                    >
+                                        Confirm
+                                    </button>
+                                </>
+                            ) : (
+                                <button 
+                                    type="button" 
+                                    className="alert-btn btn-ok" 
+                                    onClick={alertConfig.onConfirm}
+                                >
+                                    OK
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
