@@ -54,7 +54,7 @@ const LowStockAlert = ({ items, onView, onEdit }) => {
                         <i className="bi bi-eye me-1"></i> View
                     </button>
                     <button className="stock-edit-btn" onClick={() => onEdit && onEdit(item)}>
-                        <i className="bi bi-pencil me-1"></i> Restock
+                        <i className="bi bi-cart-plus me-1"></i> Create PO
                     </button>
                 </div>
             </div>

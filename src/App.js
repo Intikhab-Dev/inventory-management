@@ -30,6 +30,7 @@ import "./App.css";
 function App() {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [poPrefill, setPoPrefill] = useState(null);
   const [page, setPage] = useState(() => {
     return localStorage.getItem("current_page") || "dashboard";
   });
@@ -99,6 +100,12 @@ function App() {
     setTimeout(() => {
       setToast({ show: false, message: "" });
     }, 5000);
+  };
+
+  // 🔹 Prefill PO & Switch Page
+  const handlePrefillPo = (item) => {
+    setPoPrefill(item);
+    setPage("documents");
   };
 
   // 🔹 Add Item
@@ -628,6 +635,7 @@ function App() {
             setSelectedItem(item);
             setViewModal(true);
           }}
+          onReorderPo={handlePrefillPo}
         />
 
         <div className="page-content">
@@ -656,7 +664,7 @@ function App() {
             <LowStockAlert
               items={items}
               onView={(item) => { setSelectedItem(item); setViewModal(true); }}
-              onEdit={(item) => { setSelectedItem(item); setPage("add"); }}
+              onEdit={handlePrefillPo}
             />
           )}
 
@@ -685,6 +693,8 @@ function App() {
               items={items}
               onUpdateItems={saveItems}
               currentUser={currentUser}
+              poPrefill={poPrefill}
+              onClearPrefill={() => setPoPrefill(null)}
             />
           )}
 

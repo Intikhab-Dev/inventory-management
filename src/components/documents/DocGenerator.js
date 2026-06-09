@@ -38,7 +38,7 @@ const generateDocNumber = (prefix) => {
     return `${prefix}-${rand}`;
 };
 
-const DocGenerator = ({ items, onUpdateItems, currentUser }) => {
+const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPrefill }) => {
     // Dropdowns data
     const [suppliers, setSuppliers] = useState([]);
     const [uoms, setUoms] = useState([]);
@@ -106,12 +106,86 @@ const DocGenerator = ({ items, onUpdateItems, currentUser }) => {
         setDueDate(nextMonth.toISOString().split("T")[0]);
     }, []);
 
+    // Prefill Purchase Order when navigated via One-Click Stock Reorder System
+    useEffect(() => {
+        if (!poPrefill) return;
+
+        setDocType("po");
+
+        // 1. Handle supplier auto-selection & fallback registration
+        const targetSupplier = poPrefill.supplier;
+        const currentSuppliers = loadList(STORAGE_KEY_SUP, DEFAULT_SUPPLIERS);
+        if (targetSupplier) {
+            const exists = currentSuppliers.some(s => s.name.trim().toLowerCase() === targetSupplier.trim().toLowerCase());
+            if (!exists) {
+                const newSup = { id: Date.now() + Math.random(), name: targetSupplier, status: "active" };
+                const updatedSups = [newSup, ...currentSuppliers];
+                setSuppliers(updatedSups);
+                localStorage.setItem(STORAGE_KEY_SUP, JSON.stringify(updatedSups));
+            } else {
+                setSuppliers(currentSuppliers);
+            }
+            setSupplierName(targetSupplier);
+        } else if (currentSuppliers.length > 0) {
+            setSuppliers(currentSuppliers);
+            setSupplierName(currentSuppliers[0].name);
+        }
+
+        // 2. Add the low stock item to cart with recommended reorder quantity
+        const threshold = Number(poPrefill.minThreshold) || 5;
+        const currentStock = Number(poPrefill.quantity) || 0;
+        const recommendedQty = Math.max(10, (threshold * 2) - currentStock);
+        const price = Number(poPrefill.price) || 0;
+        const taxSlab = poPrefill.taxSlab || "GST 18%";
+        const rate = parseTaxRate(taxSlab);
+        const taxable = recommendedQty * price;
+        const tax = taxable * (rate / 100);
+        const total = taxable + tax;
+
+        const newDocItem = {
+            id: Date.now() + "_" + Math.random().toString(36).substring(2, 5),
+            itemId: poPrefill.id,
+            code: poPrefill.code,
+            name: poPrefill.name,
+            warehouse: poPrefill.warehouse || "Main Warehouse",
+            quantity: recommendedQty,
+            uom: poPrefill.uom || "Pcs",
+            price: price,
+            taxSlab: taxSlab,
+            taxableAmount: Math.round(taxable * 100) / 100,
+            taxAmount: Math.round(tax * 100) / 100,
+            totalAmount: Math.round(total * 100) / 100,
+            isCustom: false
+        };
+
+        setSelectedItems([newDocItem]);
+        setSyncInventory(true);
+
+        // 3. Prefill the left-column "Add Items" form inputs for immediate editing
+        setSelectedItemId(String(poPrefill.id));
+        setItemQty(String(recommendedQty));
+        setItemPrice(String(price));
+        setItemUom(poPrefill.uom || "Pcs");
+        setItemTaxSlab(taxSlab);
+
+        // Defer clearing prefill state to prevent React render-cycle warnings
+        const timer = setTimeout(() => {
+            if (onClearPrefill) onClearPrefill();
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [poPrefill, onClearPrefill]);
+
     // Generate doc number when docType changes
     useEffect(() => {
         const prefix = docType === "invoice" ? "INV" : "PO";
         setDocNumber(generateDocNumber(prefix));
         setSelectedItems([]);
         setErrors({});
+        setTerms(docType === "invoice" 
+            ? "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within the due date.\n3. Subject to local jurisdiction." 
+            : "1. Delivery must be made within 15 days of the order date.\n2. Items must match the specifications and UoM ordered.\n3. Invoice must reference this PO number."
+        );
     }, [docType]);
 
     // Handle Item Selection changes to pre-populate details
@@ -565,6 +639,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser }) => {
                                         placeholder="e.g. ITM-839021"
                                         value={customCodeInput}
                                         onChange={(e) => setCustomCodeInput(e.target.value)}
+                                        readOnly
                                     />
                                     {errors.customCode && <span className="error-text">{errors.customCode}</span>}
                                 </div>
@@ -584,7 +659,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser }) => {
                         )}
 
                         <div className="form-group">
-                            <label className="form-label">Qty to Order</label>
+                            <label className="form-label">Quantity</label>
                             <input
                                 type="number"
                                 className={`form-input ${errors.qty ? "is-invalid" : ""}`}
@@ -780,7 +855,21 @@ const DocGenerator = ({ items, onUpdateItems, currentUser }) => {
                             {docType === "po" ? (
                                 <div className="party-details">
                                     <strong>{supplierName || "Select Supplier"}</strong>
-                                    <p>Registered supplier contact details and warehouse logs are active.</p>
+                                    {(() => {
+                                        const selectedSupObj = suppliers.find(s => s.name === supplierName);
+                                        return selectedSupObj ? (
+                                            <p>
+                                                {selectedSupObj.contactPerson && <>Attn: {selectedSupObj.contactPerson}<br /></>}
+                                                {selectedSupObj.address && <>{selectedSupObj.address}<br /></>}
+                                                {selectedSupObj.city && <>{selectedSupObj.city}<br /></>}
+                                                {selectedSupObj.phone && <>Phone: +91 {selectedSupObj.phone}<br /></>}
+                                                {selectedSupObj.email && <>Email: {selectedSupObj.email}<br /></>}
+                                                {selectedSupObj.gst && <>GSTIN: {selectedSupObj.gst}<br /></>}
+                                            </p>
+                                        ) : (
+                                            <p>Registered supplier contact details and warehouse logs are active.</p>
+                                        );
+                                    })()}
                                 </div>
                             ) : (
                                 <div className="party-details">

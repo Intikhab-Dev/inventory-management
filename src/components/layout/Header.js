@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./Header.css";
 
-const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle }) => {
+const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = [], onViewItem, pageTitle, onReorderPo }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState(() => {
@@ -146,13 +146,28 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
                             <span className="item-alert-qty">{item.quantity} {item.uom || "units"} left (Limit: {item.minThreshold || 5} {item.uom || "units"})</span>
                           </div>
                         </div>
-                        <button
-                          className="dismiss-single-btn"
-                          onClick={(e) => handleDismissAlert(e, item.id)}
-                          title="Dismiss Alert"
-                        >
-                          <i className="bi bi-x"></i>
-                        </button>
+                        <div className="notification-actions d-flex align-items-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="reorder-po-btn no-print me-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onReorderPo) onReorderPo(item);
+                              setShowNotifications(false);
+                            }}
+                            title="Create Purchase Order"
+                          >
+                            <i className="bi bi-cart-plus-fill me-1"></i> Create PO
+                          </button>
+                          <button
+                            type="button"
+                            className="dismiss-single-btn"
+                            onClick={(e) => handleDismissAlert(e, item.id)}
+                            title="Dismiss Alert"
+                          >
+                            <i className="bi bi-x"></i>
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}

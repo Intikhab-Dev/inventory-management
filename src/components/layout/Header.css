@@ -600,3 +600,41 @@ body.dark .notifications-list::-webkit-scrollbar-thumb {
 body.dark .notifications-list {
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
+
+/* Reorder PO Button Styling */
+.reorder-po-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  white-space: nowrap;
+}
+
+.reorder-po-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+.reorder-po-btn:active {
+  transform: translateY(0);
+}
+
+body.dark .reorder-po-btn {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+}
+
+body.dark .reorder-po-btn:hover {
+  background: linear-gradient(135deg, #047857, #065f46);
+  box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);
+}
