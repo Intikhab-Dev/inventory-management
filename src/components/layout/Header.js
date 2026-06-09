@@ -143,7 +143,7 @@ const Header = ({ currentUser, onLogout, darkMode, setDarkMode, lowStockItems = 
                           <i className="bi bi-exclamation-triangle-fill text-danger me-2 mt-1"></i>
                           <div className="notification-content">
                             <span className="item-alert-name">{item.name}</span> is low on stock!
-                            <span className="item-alert-qty">{item.quantity} units left (Limit: {item.minThreshold || 5})</span>
+                            <span className="item-alert-qty">{item.quantity} {item.uom || "units"} left (Limit: {item.minThreshold || 5} {item.uom || "units"})</span>
                           </div>
                         </div>
                         <button

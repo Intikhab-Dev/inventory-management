@@ -132,7 +132,7 @@ const StockTransfer = ({ items = [], onTransfer }) => {
       );
 
       setSuccessMessage(
-        `Successfully transferred ${qty} units of "${selectedItem.name}" to "${finalTargetWh}"!`
+        `Successfully transferred ${qty} ${selectedItem.uom || "units"} of "${selectedItem.name}" to "${finalTargetWh}"!`
       );
       resetForm();
     }
@@ -182,7 +182,7 @@ const StockTransfer = ({ items = [], onTransfer }) => {
                 <option value="">-- Select Stock Item --</option>
                 {activeStockItems.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} [{item.code || "No Code"}] — {item.quantity} available ({item.warehouse || "No Warehouse"})
+                    {item.name} [{item.code || "No Code"}] — {item.quantity} {item.uom || "units"} available ({item.warehouse || "No Warehouse"})
                   </option>
                 ))}
               </select>
@@ -202,7 +202,7 @@ const StockTransfer = ({ items = [], onTransfer }) => {
                 </div>
                 <div className="info-cell">
                   <span className="info-label">Available Stock</span>
-                  <span className="info-val highlight-qty">{selectedItem.quantity} units</span>
+                  <span className="info-val highlight-qty">{selectedItem.quantity} {selectedItem.uom || "units"}</span>
                 </div>
                 <div className="info-cell">
                   <span className="info-label">Unit Price</span>

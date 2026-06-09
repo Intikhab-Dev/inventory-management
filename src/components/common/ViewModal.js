@@ -29,7 +29,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
     const qrText = `Item Code: ${item.code || "N/A"}\n` +
                    `Name: ${item.name}\n` +
                    `Warehouse: ${item.warehouse || "Unassigned"}\n` +
-                   `Quantity: ${item.quantity}\n` +
+                   `Quantity: ${item.quantity} ${item.uom || "units"}\n` +
                    `Price: ₹${Number(item.price).toLocaleString()}\n` +
                    `Total: ₹${Number(item.total).toLocaleString()}\n` +
                    `Supplier: ${item.supplier || "N/A"}\n` +
@@ -274,7 +274,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
       </tr>
       <tr>
         <td><strong>Quantity in Stock</strong></td>
-        <td>${item.quantity} units</td>
+        <td>${item.quantity} ${item.uom || 'units'}</td>
       </tr>
       <tr>
         <td><strong>Purchase Date</strong></td>
@@ -306,10 +306,10 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
     </div>
     <div class="total-row">
       <span>Quantity:</span>
-      <span>${item.quantity}</span>
+      <span>${item.quantity} ${item.uom || 'units'}</span>
     </div>
     <div class="total-row">
-      <span>Tax Amount:</span>
+      <span>Tax Amount ${item.taxSlab ? `(${item.taxSlab})` : ''}:</span>
       <span>₹ ${Number(item.tax || 0).toLocaleString()}</span>
     </div>
     <div class="total-row grand-total">
@@ -424,7 +424,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
 
             <div>
               <label><i className="bi bi-box-seam text-primary me-1"></i> Quantity</label>
-              <p>{item.quantity}</p>
+              <p>{item.quantity} {item.uom || "units"}</p>
             </div>
 
             <div>
@@ -433,7 +433,7 @@ const ViewModal = ({ show, onClose, item, onAdjustStock }) => {
             </div>
 
             <div>
-              <label><i className="bi bi-percent text-primary me-1"></i> Tax</label>
+              <label><i className="bi bi-percent text-primary me-1"></i> Tax {item.taxSlab ? `(${item.taxSlab})` : ""}</label>
               <p>₹ {Number(item.tax || 0).toLocaleString()}</p>
             </div>
 

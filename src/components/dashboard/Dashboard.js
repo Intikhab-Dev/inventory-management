@@ -1328,7 +1328,7 @@ const Dashboard = ({ items, darkMode }) => {
                               </div>
                             </td>
                             <td>{item.warehouse || "Unassigned"}</td>
-                            <td><strong>{item.quantity}</strong> units</td>
+                            <td><strong>{item.quantity}</strong> {item.uom || "units"}</td>
                             <td>{item.dailyDemand.toFixed(2)} / day</td>
                             <td style={daysStyle}>{daysDisplay}</td>
                             <td>{reorderDateDisplay}</td>
@@ -1371,7 +1371,7 @@ const Dashboard = ({ items, darkMode }) => {
                     <div key={item.id} className="alert-item-pill">
                       <span className="item-name-text">{item.name}</span>
                       <span className="item-qty-badge">
-                        {item.quantity} left
+                        {item.quantity} {item.uom || "units"} left
                       </span>
                     </div>
                   ))}
@@ -1585,7 +1585,7 @@ const Dashboard = ({ items, darkMode }) => {
                               {slot.item.name.substring(0, 2).toUpperCase()}
                             </span>
                             <span className="item-qty-tag">
-                              {slot.item.quantity} units
+                              {slot.item.quantity} {slot.item.uom || "units"}
                             </span>
                             
                             {/* Hover Tooltip */}
@@ -1600,12 +1600,12 @@ const Dashboard = ({ items, darkMode }) => {
                               <div className="tooltip-info">
                                 <span>Stock:</span>
                                 <strong className={`status-text ${slot.status}`}>
-                                  {slot.item.quantity} units
+                                  {slot.item.quantity} {slot.item.uom || "units"}
                                 </strong>
                               </div>
                               <div className="tooltip-info">
                                 <span>Min Safety:</span>
-                                <strong>{slot.item.minThreshold || 5} units</strong>
+                                <strong>{slot.item.minThreshold || 5} {slot.item.uom || "units"}</strong>
                               </div>
                               <div className="tooltip-info">
                                 <span>Outflow Rate:</span>

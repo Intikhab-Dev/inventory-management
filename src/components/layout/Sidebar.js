@@ -16,6 +16,7 @@ const Sidebar = ({ page, setPage, items = [], onAddClick, collapsed, setCollapse
         { id: "audit",     label: "Stock Audit", icon: "bi-clipboard-check" },
         { id: "ledger",    label: "Stock Ledger", icon: "bi-clock-history" },
         { id: "reports",   label: "Reports",    icon: "bi-bar-chart-line" },
+        { id: "documents", label: "Invoice/PO", icon: "bi-file-earmark-pdf" },
         { id: "alerts",    label: "Low Stock",  icon: "bi-exclamation-triangle", badge: lowStockCount },
         { id: "settings",  label: "Settings",   icon: "bi-gear" }
     ];

@@ -76,7 +76,7 @@ const StockOut = ({ items = [], onStockOut }) => {
                 notes.trim()
             );
             
-            setSuccessMessage(`Successfully dispatched ${qty} units of "${selectedItem.name}"!`);
+            setSuccessMessage(`Successfully dispatched ${qty} ${selectedItem.uom || "units"} of "${selectedItem.name}"!`);
             resetForm();
         }
     };
@@ -117,7 +117,7 @@ const StockOut = ({ items = [], onStockOut }) => {
                                 <option value="">-- Select Stock Item --</option>
                                 {activeStockItems.map(item => (
                                     <option key={item.id} value={item.id}>
-                                        {item.name} [{item.code || "No Code"}] — {item.quantity} available ({item.warehouse || "No Warehouse"})
+                                        {item.name} [{item.code || "No Code"}] — {item.quantity} {item.uom || "units"} available ({item.warehouse || "No Warehouse"})
                                     </option>
                                 ))}
                             </select>
@@ -137,7 +137,7 @@ const StockOut = ({ items = [], onStockOut }) => {
                                 </div>
                                 <div className="info-cell">
                                     <span className="info-label">Current Stock</span>
-                                    <span className="info-val highlight-qty">{selectedItem.quantity} units</span>
+                                    <span className="info-val highlight-qty">{selectedItem.quantity} {selectedItem.uom || "units"}</span>
                                 </div>
                                 <div className="info-cell">
                                     <span className="info-label">Unit Price</span>

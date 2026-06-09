@@ -5,14 +5,44 @@ import "./ItemForm.css";
 const STORAGE_KEY_CAT = "customCategories";
 const STORAGE_KEY_WH = "customWarehouses";
 const STORAGE_KEY_SUP = "suppliers";
+const STORAGE_KEY_UOM = "customUoms";
+const STORAGE_KEY_TAX = "customTaxSlabs";
 
 const DEFAULT_CATEGORIES = ["Electronics", "Furniture", "Stationery", "Tools", "Clothing", "Food", "Medical", "Other"];
 const DEFAULT_WAREHOUSES = ["Main Warehouse", "Secondary Warehouse", "Cold Storage"];
+const DEFAULT_UOMS = ["Pcs", "Kg", "Ltr", "Box", "Pkt", "Mtr", "Set"];
+const DEFAULT_TAX_SLABS = ["GST 0%", "GST 5%", "GST 12%", "GST 18%", "GST 28%"];
 const DEFAULT_SUPPLIERS = [
     { id: 1, name: "ABC Traders", status: "active" },
     { id: 2, name: "XYZ Solutions", status: "active" },
     { id: 3, name: "Global Exports", status: "active" }
 ];
+
+const parseTaxRate = (slabString) => {
+    if (!slabString) return 0;
+    const match = slabString.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (match) return parseFloat(match[1]);
+    const numMatch = slabString.match(/(\d+(?:\.\d+)?)/);
+    return numMatch ? parseFloat(numMatch[1]) : 0;
+};
+
+const detectTaxSlab = (item, slabs) => {
+    if (item.taxSlab) return item.taxSlab;
+    const qty = Number(item.quantity) || 0;
+    const prc = Number(item.price) || 0;
+    const tx = Number(item.tax) || 0;
+    if (qty > 0 && prc > 0 && tx > 0) {
+        const rate = (tx / (qty * prc)) * 100;
+        const found = slabs.find(slab => Math.abs(parseTaxRate(slab) - rate) < 0.1);
+        if (found) return found;
+    }
+    return "GST 0%";
+};
+
+const detectUom = (item, uomsList) => {
+    if (item.uom) return item.uom;
+    return uomsList.includes("Pcs") ? "Pcs" : (uomsList[0] || "Pcs");
+};
 
 const loadList = (key, defaults) => {
     try {
@@ -62,6 +92,9 @@ const ItemForm = ({ onAdd, editData }) => {
         minThreshold: "5",
         currency: "INR",
         price: "",
+        uom: "Pcs",
+        taxSlab: "GST 0%",
+        taxableAmount: "",
         tax: "",
         total: "",
         supplier: "",
@@ -83,11 +116,15 @@ const ItemForm = ({ onAdd, editData }) => {
     const [categories, setCategories] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
+    const [uoms, setUoms] = useState([]);
+    const [taxSlabs, setTaxSlabs] = useState([]);
 
     // Load master lists on mount
     useEffect(() => {
         setCategories(loadList(STORAGE_KEY_CAT, DEFAULT_CATEGORIES));
         setWarehouses(loadList(STORAGE_KEY_WH, DEFAULT_WAREHOUSES));
+        setUoms(loadList(STORAGE_KEY_UOM, DEFAULT_UOMS));
+        setTaxSlabs(loadList(STORAGE_KEY_TAX, DEFAULT_TAX_SLABS));
         try {
             const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_SUP));
             setSuppliers(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SUPPLIERS);
@@ -128,7 +165,16 @@ const ItemForm = ({ onAdd, editData }) => {
 
     useEffect(() => {
         if (editData) {
-            setForm({ ...initialState, ...editData });
+            const loadedUoms = loadList(STORAGE_KEY_UOM, DEFAULT_UOMS);
+            const loadedSlabs = loadList(STORAGE_KEY_TAX, DEFAULT_TAX_SLABS);
+            const detectedUom = detectUom(editData, loadedUoms);
+            const detectedSlab = detectTaxSlab(editData, loadedSlabs);
+            setForm({
+                ...initialState,
+                ...editData,
+                uom: detectedUom,
+                taxSlab: detectedSlab
+            });
         } else {
             setForm(initialState);
         }
@@ -139,13 +185,28 @@ const ItemForm = ({ onAdd, editData }) => {
     useEffect(() => {
         const quantity = Number(form.quantity) || 0;
         const price = Number(form.price) || 0;
-        const tax = Number(form.tax) || 0;
-        const total = (quantity * price) + tax;
+        const taxableAmount = quantity * price;
+        const taxRate = parseTaxRate(form.taxSlab);
+        const tax = taxableAmount * (taxRate / 100);
+        const total = taxableAmount + tax;
 
-        if (form.total !== total) {
-            setForm((prev) => ({ ...prev, total }));
+        const roundedTaxable = Math.round(taxableAmount * 100) / 100;
+        const roundedTax = Math.round(tax * 100) / 100;
+        const roundedTotal = Math.round(total * 100) / 100;
+
+        if (
+            form.taxableAmount !== roundedTaxable ||
+            form.tax !== roundedTax ||
+            form.total !== roundedTotal
+        ) {
+            setForm((prev) => ({
+                ...prev,
+                taxableAmount: roundedTaxable,
+                tax: roundedTax,
+                total: roundedTotal
+            }));
         }
-    }, [form.quantity, form.price, form.tax]);
+    }, [form.quantity, form.price, form.taxSlab]);
 
     const generateItemCode = () => {
         const rand = Math.floor(100000 + Math.random() * 900000);
@@ -178,10 +239,11 @@ const ItemForm = ({ onAdd, editData }) => {
             tempErrors.price = "Price cannot be negative.";
         }
 
-        if (formObj.tax === "" || formObj.tax === null || formObj.tax === undefined) {
-            tempErrors.tax = "Tax Amount is required.";
-        } else if (Number(formObj.tax) < 0) {
-            tempErrors.tax = "Tax cannot be negative.";
+        if (!formObj.uom || !formObj.uom.trim()) {
+            tempErrors.uom = "Unit of Measurement is required.";
+        }
+        if (!formObj.taxSlab || !formObj.taxSlab.trim()) {
+            tempErrors.taxSlab = "Tax Slab is required.";
         }
 
         if (!formObj.supplier || !formObj.supplier.trim()) tempErrors.supplier = "Supplier Name is required.";
@@ -329,17 +391,10 @@ const ItemForm = ({ onAdd, editData }) => {
                         {errors.supplier && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.supplier}</span>}
                     </div>
 
-                    {/* ══ SECTION: Stock & Pricing ══ */}
-                    <div className="form-section-label full-width">
-                        <i className="bi bi-box-seam text-primary me-2"></i> Stock & Pricing
-                    </div>
-
-                    <Field label="Quantity" name="quantity" type="number" placeholder="0" required form={form} handleChange={handleChange} errors={errors} />
-                    <Field label="Low Stock Threshold" name="minThreshold" type="number" placeholder="5 (default)" form={form} handleChange={handleChange} errors={errors} />
-
+                    {/* Currency */}
                     <div className="form-group">
                         <label className="form-label">
-                            Currency <span className="required-star">*</span>
+                            Buying Currency <span className="required-star">*</span>
                         </label>
                         <select
                             name="currency"
@@ -362,8 +417,60 @@ const ItemForm = ({ onAdd, editData }) => {
                         {errors.currency && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.currency}</span>}
                     </div>
 
+                    {/* ══ SECTION: Stock & Pricing ══ */}
+                    <div className="form-section-label full-width">
+                        <i className="bi bi-box-seam text-primary me-2"></i> Stock & Pricing
+                    </div>
+
+                    <Field label="Quantity" name="quantity" type="number" placeholder="0" required form={form} handleChange={handleChange} errors={errors} />
+
+                    {/* UoM Dropdown */}
+                    <div className="form-group">
+                        <label className="form-label">
+                            Unit (UoM) <span className="required-star">*</span>
+                        </label>
+                        <select
+                            name="uom"
+                            value={form.uom}
+                            onChange={handleChange}
+                            className={`form-input ${errors.uom ? "is-invalid" : ""}`}
+                        >
+                            <option value="">-- Select Unit --</option>
+                            {uoms.map(u => (
+                                <option key={u} value={u}>{u}</option>
+                            ))}
+                        </select>
+                        {errors.uom && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.uom}</span>}
+                    </div>
+
+                    <Field label="Low Stock Threshold" name="minThreshold" type="number" placeholder="5 (default)" form={form} handleChange={handleChange} errors={errors} />
+
                     <Field label="Price (per unit)" name="price" type="number" placeholder="0.00" required form={form} handleChange={handleChange} errors={errors} />
-                    <Field label="Tax Amount" name="tax" type="number" placeholder="0.00" required form={form} handleChange={handleChange} errors={errors} />
+
+                    {/* Taxable Amount - Read only, calculated */}
+                    <Field label="Taxable Amount" name="taxableAmount" type="number" placeholder="0.00" readOnly form={form} handleChange={handleChange} errors={errors} />
+
+                    {/* Tax Slab Dropdown */}
+                    <div className="form-group">
+                        <label className="form-label">
+                            Tax Slab (GST %) <span className="required-star">*</span>
+                        </label>
+                        <select
+                            name="taxSlab"
+                            value={form.taxSlab}
+                            onChange={handleChange}
+                            className={`form-input ${errors.taxSlab ? "is-invalid" : ""}`}
+                        >
+                            <option value="">-- Select Tax Slab --</option>
+                            {taxSlabs.map(slab => (
+                                <option key={slab} value={slab}>{slab}</option>
+                            ))}
+                        </select>
+                        {errors.taxSlab && <span className="error-text"><i className="bi bi-exclamation-circle me-1"></i>{errors.taxSlab}</span>}
+                    </div>
+
+                    {/* Tax Amount (GST) - Read only, calculated */}
+                    <Field label="Tax Amount (GST)" name="tax" type="number" placeholder="0.00" readOnly form={form} handleChange={handleChange} errors={errors} />
 
                     {/* Total — auto calculated */}
                     <div className="form-group">

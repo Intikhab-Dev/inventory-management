@@ -66,7 +66,7 @@ const StockLogModal = ({ item, onClose, onUpdateQty }) => {
                 <div className="slm-current-stock">
                     <span className="slm-cs-label">Current Stock</span>
                     <span className="slm-cs-val">{item.quantity}</span>
-                    <span className="slm-cs-unit">units</span>
+                    <span className="slm-cs-unit">{item.uom || "units"}</span>
                 </div>
 
                 {/* Add movement form */}
@@ -129,7 +129,7 @@ const StockLogModal = ({ item, onClose, onUpdateQty }) => {
                                 </div>
                                 <div className="slm-log-info">
                                     <span className="slm-log-qty">
-                                        {log.type === "in" ? "+" : "-"}{log.qty} units
+                                        {log.type === "in" ? "+" : "-"}{log.qty} {item.uom || "units"}
                                     </span>
                                     {log.note && <span className="slm-log-note">{log.note}</span>}
                                 </div>

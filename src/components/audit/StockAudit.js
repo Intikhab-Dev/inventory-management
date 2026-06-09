@@ -345,7 +345,7 @@ Stock values will be updated and ledger transaction logs created.`;
                         </td>
                         <td>{item.warehouse || "Unassigned"}</td>
                         <td>
-                          <span className="recorded-qty-val">{item.quantity} units</span>
+                          <span className="recorded-qty-val">{item.quantity} {item.uom || "units"}</span>
                         </td>
                         <td>
                           <div className="input-counted-wrapper">

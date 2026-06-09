@@ -1,0 +1,764 @@
+/* ─── Layout Wrapper ─── */
+.doc-wrapper {
+  display: flex;
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+  align-items: flex-start;
+}
+
+.form-editor-panel {
+  width: 42%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-container {
+  width: 58%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 24px;
+}
+
+/* ─── Cards & Section ─── */
+.doc-section-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+.section-card-title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #334155;
+  border-bottom: 1.5px solid #f1f5f9;
+  padding-bottom: 8px;
+}
+
+/* ─── Doc Type Toggle Buttons ─── */
+.doc-type-toggle {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+}
+
+/* ─── Grid layouts ─── */
+.doc-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.item-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.full-row {
+  grid-column: span 2;
+}
+
+.form-textarea-mini {
+  min-height: 60px;
+  resize: vertical;
+}
+
+/* ─── Cart Tables in Editor ─── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.doc-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.doc-item-table th,
+.doc-item-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.doc-item-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.doc-item-table tr:hover {
+  background: #f8fafc;
+}
+
+.item-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.item-meta {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.delete-item-btn {
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.delete-item-btn:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+/* ─── Add Item & Action Buttons ─── */
+.add-item-btn {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.add-item-btn:hover {
+  background: #4338ca;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.18);
+}
+
+.doc-action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.doc-btn {
+  flex: 1;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #16a34a;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #15803d;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
+}
+
+.btn-print {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.btn-print:hover {
+  background: #4338ca;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+/* ─── Custom Checkbox for Inventory Sync ─── */
+.sync-inventory-control {
+  margin: 18px 0 10px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  height: 18px;
+  width: 18px;
+  background-color: #fff;
+  border: 1.5px solid #16a34a;
+  border-radius: 4px;
+  margin-top: 2px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkbox-container:hover input ~ .checkmark {
+  background-color: #f0fdf4;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #16a34a;
+}
+
+.checkmark:after {
+  content: "";
+  display: none;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.checkbox-label strong {
+  font-size: 13px;
+  color: #15803d;
+}
+
+.checkbox-sub {
+  font-size: 11px;
+  color: #166534;
+  margin-top: 2px;
+}
+
+/* ─── Preview Sheet Container ─── */
+.print-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* A4 Printable card styling */
+.invoice-preview-card {
+  width: 100%;
+  aspect-ratio: 1 / 1.414; /* A4 aspect ratio */
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  padding: 48px;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+/* Letterhead styles */
+.preview-letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.letterhead-company {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.company-logo-preview {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.company-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #1e1b4b;
+  letter-spacing: -0.01em;
+}
+
+.company-details {
+  font-size: 11px;
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.letterhead-doc-type {
+  text-align: right;
+}
+
+.letterhead-doc-type h1 {
+  font-size: 22px;
+  font-weight: 900;
+  color: #1e293b;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.doc-stamp {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #4f46e5;
+  border: 1.5px solid #4f46e5;
+  border-radius: 3px;
+  padding: 2px 8px;
+  letter-spacing: 0.1em;
+}
+
+.preview-divider {
+  height: 2px;
+  background: #4f46e5;
+  margin: 24px 0;
+}
+
+/* Parties */
+.preview-parties-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px;
+  margin-bottom: 24px;
+}
+
+.party-box {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.party-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.party-details strong {
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.party-details p {
+  margin: 4px 0 0;
+  color: #475569;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.meta-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.meta-value {
+  color: #0f172a;
+  font-weight: 600;
+  min-width: 120px;
+  text-align: left;
+}
+
+/* Preview Table */
+.preview-table-container {
+  flex-grow: 1;
+  margin-bottom: 24px;
+}
+
+.preview-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.preview-item-table th {
+  background: #f1f5f9;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1.5px solid #cbd5e1;
+  color: #334155;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
+.preview-item-table td {
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+  vertical-align: top;
+}
+
+.preview-item-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.preview-item-desc {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.empty-table-placeholder {
+  text-align: center !important;
+  color: #94a3b8;
+  padding: 40px !important;
+  font-style: italic;
+  background: #fafafa;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+}
+
+/* Preview Summary & Subtotals */
+.preview-summary-container {
+  display: grid;
+  grid-template-columns: 55% 45%;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+
+.summary-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.terms-text {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.calc-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #475569;
+}
+
+.calc-row.divider {
+  height: 1px;
+  background: #cbd5e1;
+  margin: 4px 0;
+}
+
+.calc-row.grand-total {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+/* Signatory Section */
+.preview-signature-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 11px;
+  color: #475569;
+  margin-top: 10px;
+}
+
+.signature-line {
+  width: 140px;
+  height: 1px;
+  background: #94a3b8;
+  margin-top: 40px;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+}
+
+.text-end { text-align: right !important; }
+.text-center { text-align: center !important; }
+
+/* ─── Responsive design ─── */
+@media (max-width: 1100px) {
+  .doc-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-editor-panel,
+  .preview-container {
+    width: 100%;
+  }
+
+  .preview-container {
+    position: static;
+  }
+}
+
+/* ═══════════════════════════════════════
+   DARK MODE
+   Note: The invoice-preview-card itself
+   remains white to look like real paper!
+   We only darken the form inputs and containers.
+   ═══════════════════════════════════════ */
+body.dark .doc-section-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+body.dark .section-card-title {
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+body.dark .doc-type-toggle {
+  background: #0f172a;
+}
+
+body.dark .toggle-btn {
+  color: #64748b;
+}
+
+body.dark .toggle-btn.active {
+  background: #1e293b;
+  color: #818cf8;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+body.dark .doc-item-table th {
+  background: #0f172a;
+  color: #94a3b8;
+}
+
+body.dark .doc-item-table td {
+  border-color: #334155;
+}
+
+body.dark .item-name {
+  color: #e2e8f0;
+}
+
+body.dark .doc-item-table tr:hover {
+  background: #0f172a;
+}
+
+body.dark .btn-secondary {
+  background: #0f172a;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+body.dark .btn-secondary:hover {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+body.dark .sync-inventory-control {
+  background: #022c22;
+  border-color: #064e3b;
+}
+
+body.dark .checkbox-container strong {
+  color: #4ade80;
+}
+
+body.dark .checkbox-sub {
+  color: #a7f3d0;
+}
+
+body.dark .checkmark {
+  background-color: #1e293b;
+}
+
+
+/* ═══════════════════════════════════════
+   PRINT MEDIA RULES (FOR EXPORT & PRINT)
+   ═══════════════════════════════════════ */
+@media print {
+  /* Hide all app wrapper details */
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    font-size: 12pt !important;
+  }
+
+  .sidebar,
+  .header,
+  .form-editor-panel,
+  .print-badge,
+  .no-print,
+  .sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  .main-content-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    left: 0 !important;
+  }
+
+  .page-content,
+  .doc-wrapper,
+  .preview-container {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+  }
+
+  .invoice-preview-card {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    aspect-ratio: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .preview-divider {
+    background: #000000 !important; /* Force black lines in printing */
+  }
+
+  .company-logo-preview {
+    background: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .preview-item-table th {
+    background: #f1f5f9 !important;
+    border-top: 1px solid #000000 !important;
+    border-bottom: 2px solid #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .preview-item-table td {
+    border-bottom: 1px solid #cccccc !important;
+  }
+
+  .doc-stamp {
+    border-color: #000000 !important;
+    color: #000000 !important;
+  }
+
+  /* Page Setup for Printer margins */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+}

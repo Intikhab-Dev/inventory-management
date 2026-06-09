@@ -4,7 +4,7 @@ import { saveAs } from "file-saver";
 import { transactionService } from "../../services/transactionService";
 import "./StockLedger.css";
 
-const StockLedger = () => {
+const StockLedger = ({ items = [] }) => {
     const [transactions, setTransactions] = useState([]);
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState(""); // "" | "IN" | "OUT"
@@ -72,6 +72,7 @@ const StockLedger = () => {
             "Item Name": tx.itemName,
             "Type": tx.type === "IN" ? "IN (Stock In)" : "OUT (Stock Out)",
             "Quantity": tx.qty,
+            "Unit (UoM)": items.find(i => i.code === tx.itemId)?.uom || "units",
             "Reason": tx.reason,
             "Operator": tx.user,
             "Notes": tx.notes || ""
@@ -222,7 +223,7 @@ const StockLedger = () => {
                                         </span>
                                     </td>
                                     <td className={`qty-col ${tx.type === "IN" ? "text-success" : "text-danger"}`}>
-                                        <strong>{tx.type === "IN" ? "+" : "-"}{tx.qty}</strong>
+                                        <strong>{tx.type === "IN" ? "+" : "-"}{tx.qty}</strong> <small className="text-muted">{items.find(i => i.code === tx.itemId)?.uom || "units"}</small>
                                     </td>
                                     <td>
                                         <span className="ledger-reason-pill">{tx.reason}</span>

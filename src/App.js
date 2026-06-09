@@ -18,6 +18,7 @@ import StockOut from "./components/stockout/StockOut";
 import StockLedger from "./components/ledger/StockLedger";
 import StockTransfer from "./components/transfer/StockTransfer";
 import StockAudit from "./components/audit/StockAudit";
+import DocGenerator from "./components/documents/DocGenerator";
 
 // Services
 import { authService } from "./services/authService";
@@ -591,6 +592,8 @@ function App() {
         return "Stock Transaction Ledger";
       case "reports":
         return "Reports & Analytics";
+      case "documents":
+        return "Invoice & PO Generator";
       case "alerts":
         return "Low Stock Alerts";
       case "settings":
@@ -672,10 +675,18 @@ function App() {
           )}
 
           {page === "ledger" && (
-            <StockLedger />
+            <StockLedger items={items} />
           )}
 
           {page === "reports" && <Reports items={items} />}
+
+          {page === "documents" && (
+            <DocGenerator
+              items={items}
+              onUpdateItems={saveItems}
+              currentUser={currentUser}
+            />
+          )}
 
           {page === "settings" && <Settings />}
 

@@ -153,10 +153,10 @@ const Reports = ({ items = [] }) => {
 
         // All items sheet
         const itemRows = [
-            ["#", "Name", "Code", "Category", "Warehouse", "Supplier", "Qty", "Price (₹)", "Tax (₹)", "Total (₹)", "Status", "Purchase Date", "Bill Number", "Bill Date", "PO Number"],
+            ["#", "Name", "Code", "Category", "Warehouse", "Supplier", "Qty", "Unit (UoM)", "Price (₹)", "Tax Slab", "Tax (₹)", "Total (₹)", "Status", "Purchase Date", "Bill Number", "Bill Date", "PO Number"],
             ...items.map((item, idx) => [
                 idx + 1, item.name, item.code, item.category, item.warehouse,
-                item.supplier, item.quantity, item.price, item.tax, item.total,
+                item.supplier, item.quantity, item.uom || "units", item.price, item.taxSlab || "GST 0%", item.tax, item.total,
                 item.status === "1" ? "Active" : "Inactive", item.purchaseDate,
                 item.billNumber || "—", item.billDate || "—", item.poNumber || "—"
             ])
@@ -593,7 +593,9 @@ const Reports = ({ items = [] }) => {
                                                     <td><code className="item-code-pill">{item.code || "—"}</code></td>
                                                     <td>{item.category}</td>
                                                     <td>{item.warehouse || "—"}</td>
-                                                    <td className={Number(item.quantity) === 0 ? "qty-zero" : ""}>{item.quantity}</td>
+                                                    <td className={Number(item.quantity) === 0 ? "qty-zero" : ""}>
+                                                        {item.quantity} <small className="text-muted">{item.uom || "units"}</small>
+                                                    </td>
                                                     <td>₹{fmt(item.price)}</td>
                                                     <td className="val-col">₹{fmt(item.total)}</td>
                                                     <td>
@@ -672,7 +674,7 @@ const Reports = ({ items = [] }) => {
                                                     </span>
                                                 </td>
                                                 <td className={tx.type === "IN" ? "text-success fw-bold" : "text-danger fw-bold"}>
-                                                    {tx.type === "IN" ? "+" : "-"}{tx.qty}
+                                                    {tx.type === "IN" ? "+" : "-"}{tx.qty} <small className="text-muted">{items.find(i => i.code === tx.itemId)?.uom || "units"}</small>
                                                 </td>
                                                 <td>
                                                     <span className="ledger-reason-pill">{tx.reason}</span>

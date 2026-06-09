@@ -194,7 +194,9 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
             "Item Name": item.name,
             "Category": item.category,
             "Quantity": item.quantity,
+            "Unit": item.uom || "units",
             "Price (₹)": item.price,
+            "Tax Slab": item.taxSlab || "GST 0%",
             "Tax (₹)": item.tax,
             "Total (₹)": item.total,
             "Supplier": item.supplier,
@@ -224,7 +226,7 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
         { key: "category_type",label: "Type" },
         { key: "category",     label: "Category" },
         { key: "quantity",     label: "Qty" },
-        { key: "currency",     label: "Currency" },
+        // { key: "currency",     label: "Currency" },
         { key: "price",        label: "Price" },
         { key: "tax",          label: "Tax" },
         { key: "total",        label: "Total" },
@@ -487,7 +489,9 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                     <td>{item.category}</td>
                                     <td>
                                         <div className="d-flex align-items-center justify-content-start gap-1">
-                                            <span>{item.quantity}</span>
+                                            <span>
+                                                {item.quantity} <small className="text-muted">{item.uom || "units"}</small>
+                                            </span>
                                             {Number(item.quantity) <= (Number(item.minThreshold) || 5) && (
                                                 <span className="badge bg-danger text-white rounded-pill ms-1" style={{ fontSize: '10px', padding: '3px 6px' }} title={`Low stock: limit is ${item.minThreshold || 5}`}>
                                                     Low
@@ -495,9 +499,12 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                                             )}
                                         </div>
                                     </td>
-                                    <td>{item.currency}</td>
+                                    {/* <td>{item.currency}</td> */}
                                     <td>₹ {item.price}</td>
-                                    <td>₹ {item.tax}</td>
+                                    <td>
+                                        <div>₹ {item.tax}</div>
+                                        {item.taxSlab && <small className="text-muted d-block" style={{ fontSize: '10px' }}>{item.taxSlab}</small>}
+                                    </td>
                                     <td className="total">₹ {item.total}</td>
                                     {/* <td>
                                         {item.purchaseDate

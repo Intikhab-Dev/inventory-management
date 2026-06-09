@@ -37,8 +37,8 @@ const LowStockAlert = ({ items, onView, onEdit }) => {
 
                 <div className="stock-qty-row">
                     <span className="stock-qty-label">Qty:</span>
-                    <span className="stock-qty-val">{item.quantity}</span>
-                    <span className="stock-threshold">/ Limit: {item.minThreshold || 5}</span>
+                    <span className="stock-qty-val">{item.quantity} {item.uom || "units"}</span>
+                    <span className="stock-threshold">/ Limit: {item.minThreshold || 5} {item.uom || "units"}</span>
                 </div>
 
                 {/* Progress bar */}
