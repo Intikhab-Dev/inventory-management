@@ -6,6 +6,37 @@ const StockAudit = ({ items = [], onCompleteAudit }) => {
   const [isAuditActive, setIsAuditActive] = useState(false);
   const [auditItems, setAuditItems] = useState([]);
   const [toastMessage, setToastMessage] = useState("");
+  const [alertConfig, setAlertConfig] = useState(null);
+
+  const showCustomAlert = (msg) => {
+    return new Promise((resolve) => {
+      setAlertConfig({
+        message: msg,
+        type: "alert",
+        onConfirm: () => {
+          setAlertConfig(null);
+          resolve(true);
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (msg) => {
+    return new Promise((resolve) => {
+      setAlertConfig({
+        message: msg,
+        type: "confirm",
+        onConfirm: () => {
+          setAlertConfig(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setAlertConfig(null);
+          resolve(false);
+        }
+      });
+    });
+  };
 
   // Extract unique warehouses from all active items
   const warehouses = useMemo(() => {
@@ -87,8 +118,9 @@ const StockAudit = ({ items = [], onCompleteAudit }) => {
     triggerToast("Audit draft saved successfully.");
   };
 
-  const handleCancelAudit = () => {
-    if (window.confirm("Are you sure you want to cancel the current audit? All counted values will be lost.")) {
+  const handleCancelAudit = async () => {
+    const confirmed = await showCustomConfirm("Are you sure you want to cancel the current audit? All counted values will be lost.");
+    if (confirmed) {
       localStorage.removeItem("audit_draft");
       setIsAuditActive(false);
       setAuditItems([]);
@@ -141,9 +173,9 @@ const StockAudit = ({ items = [], onCompleteAudit }) => {
   }, [auditItems]);
 
   // Submit and Complete Audit
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (stats.auditedCount === 0) {
-      alert("Please enter physical counts for at least one item before completing the audit.");
+      await showCustomAlert("Please enter physical counts for at least one item before completing the audit.");
       return;
     }
 
@@ -154,7 +186,8 @@ const StockAudit = ({ items = [], onCompleteAudit }) => {
 
 Stock values will be updated and ledger transaction logs created.`;
 
-    if (window.confirm(confirmMsg)) {
+    const confirmed = await showCustomConfirm(confirmMsg);
+    if (confirmed) {
       localStorage.removeItem("audit_draft");
       // Filter out items that were actually counted
       const adjustments = auditItems.filter((i) => i.countedQty !== "");
@@ -405,6 +438,52 @@ Stock values will be updated and ledger transaction logs created.`;
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Custom Alert/Confirm Dialog Popup */}
+      {alertConfig && (
+        <div className="custom-alert-overlay no-print">
+          <div className="custom-alert-card animate-scale-up">
+            <div className="custom-alert-icon">
+              {alertConfig.type === "confirm" ? (
+                <i className="bi bi-exclamation-triangle-fill text-warning"></i>
+              ) : (
+                <i className="bi bi-info-circle-fill text-primary"></i>
+              )}
+            </div>
+            <div className="custom-alert-body">
+              <p className="custom-alert-message" style={{ whiteSpace: 'pre-wrap' }}>{alertConfig.message}</p>
+            </div>
+            <div className="custom-alert-actions">
+              {alertConfig.type === "confirm" ? (
+                <>
+                  <button
+                    type="button"
+                    className="alert-btn btn-cancel"
+                    onClick={alertConfig.onCancel}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="alert-btn btn-confirm"
+                    onClick={alertConfig.onConfirm}
+                  >
+                    Confirm
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="alert-btn btn-ok"
+                  onClick={alertConfig.onConfirm}
+                >
+                  OK
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

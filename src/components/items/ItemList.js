@@ -30,7 +30,37 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
 
     // ── Bulk Select ──
     const [selectedIds, setSelectedIds] = React.useState(new Set());
-    const [showBulkConfirm, setShowBulkConfirm] = React.useState(false);
+    const [alertConfig, setAlertConfig] = React.useState(null);
+
+    const showCustomAlert = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "alert",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                }
+            });
+        });
+    };
+
+    const showCustomConfirm = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "confirm",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                },
+                onCancel: () => {
+                    setAlertConfig(null);
+                    resolve(false);
+                }
+            });
+        });
+    };
 
     // ── Stock Log Modal ──
     const [stockLogItem, setStockLogItem] = React.useState(null);
@@ -179,14 +209,13 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
     const handleBulkDelete = () => {
         selectedIds.forEach(id => onDelete && onDelete(id));
         setSelectedIds(new Set());
-        setShowBulkConfirm(false);
     };
 
 
     // ── Excel Export ──
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (!items || items.length === 0) {
-            alert("No data to export");
+            await showCustomAlert("No data to export");
             return;
         }
 
@@ -377,7 +406,15 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                 <div className="toolbar-row">
                     <div className="toolbar-left">
                         {selectedIds.size > 0 && (
-                            <button className="bulk-delete-btn" onClick={() => setShowBulkConfirm(true)}>
+                            <button
+                                className="bulk-delete-btn"
+                                onClick={async () => {
+                                    const confirmed = await showCustomConfirm(`⚠️ Are you sure you want to delete ${selectedIds.size} selected item${selectedIds.size > 1 ? "s" : ""}? This cannot be undone.`);
+                                    if (confirmed) {
+                                        handleBulkDelete();
+                                    }
+                                }}
+                            >
                                 <i className="bi bi-trash"></i> Delete Selected ({selectedIds.size})
                             </button>
                         )}
@@ -402,16 +439,6 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                         </label>
                     </div>
                 </div>
-
-                {/* ── Bulk Delete Confirmation ── */}
-                {showBulkConfirm && (
-                    <div className="bulk-confirm-bar mt-3">
-                        <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                        <span>Delete <strong>{selectedIds.size}</strong> selected item{selectedIds.size > 1 ? "s" : ""}? This cannot be undone.</span>
-                        <button className="bulk-confirm-yes ms-auto" onClick={handleBulkDelete}>Yes, Delete</button>
-                        <button className="bulk-confirm-no" onClick={() => setShowBulkConfirm(false)}>Cancel</button>
-                    </div>
-                )}
             </div>
 
             {/* Only the table itself is inside the horizontal scroll container */}
@@ -560,9 +587,19 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
 
                                                     <div className="dropdown-divider"></div>
 
-                                                    <button type="button" className="dropdown-item delete" onClick={() => { setActiveDropdownId(null); openDeleteModal(item); }}>
-                                                        <i className="bi bi-trash"></i> Delete
-                                                    </button>
+                                                     <button
+                                                         type="button"
+                                                         className="dropdown-item delete"
+                                                         onClick={async () => {
+                                                             setActiveDropdownId(null);
+                                                             const confirmed = await showCustomConfirm(`⚠️ Are you sure you want to delete "${item.name}"? This action cannot be undone.`);
+                                                             if (confirmed) {
+                                                                 onDelete && onDelete(item.id);
+                                                             }
+                                                         }}
+                                                     >
+                                                         <i className="bi bi-trash"></i> Delete
+                                                     </button>
                                                 </div>
                                             )}
                                         </div>
@@ -649,6 +686,52 @@ const ItemList = ({ items, onView, onEdit, onDelete, openDeleteModal, onDuplicat
                     <span className="page-info">
                         Page {currentPage} of {totalPages}
                     </span>
+                </div>
+            )}
+
+            {/* Custom Alert/Confirm Dialog Popup */}
+            {alertConfig && (
+                <div className="custom-alert-overlay no-print">
+                    <div className="custom-alert-card animate-scale-up">
+                        <div className="custom-alert-icon">
+                            {alertConfig.type === "confirm" ? (
+                                <i className="bi bi-exclamation-triangle-fill text-warning"></i>
+                            ) : (
+                                <i className="bi bi-info-circle-fill text-primary"></i>
+                            )}
+                        </div>
+                        <div className="custom-alert-body">
+                            <p className="custom-alert-message" style={{ whiteSpace: 'pre-wrap' }}>{alertConfig.message}</p>
+                        </div>
+                        <div className="custom-alert-actions">
+                            {alertConfig.type === "confirm" ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="alert-btn btn-cancel"
+                                        onClick={alertConfig.onCancel}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="alert-btn btn-confirm"
+                                        onClick={alertConfig.onConfirm}
+                                    >
+                                        Confirm
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="alert-btn btn-ok"
+                                    onClick={alertConfig.onConfirm}
+                                >
+                                    OK
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

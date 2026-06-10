@@ -8,6 +8,9 @@ const STORAGE_KEY_SUP = "suppliers";
 const STORAGE_KEY_UOM = "customUoms";
 const STORAGE_KEY_TAX = "customTaxSlabs";
 const STORAGE_KEY_WH = "customWarehouses";
+const STORAGE_KEY_CAT = "customCategories";
+
+const DEFAULT_CATEGORIES = ["Electronics", "Furniture", "Stationery", "Tools", "Clothing", "Food", "Medical", "Other"];
 
 const DEFAULT_UOMS = ["Pcs", "Kg", "Ltr", "Box", "Pkt", "Mtr", "Set"];
 const DEFAULT_TAX_SLABS = ["GST 0%", "GST 5%", "GST 12%", "GST 18%", "GST 28%"];
@@ -26,6 +29,19 @@ const parseTaxRate = (slabString) => {
     return numMatch ? parseFloat(numMatch[1]) : 0;
 };
 
+const detectTaxSlab = (item, slabs) => {
+    if (item.taxSlab) return item.taxSlab;
+    const qty = Number(item.quantity) || 1;
+    const prc = Number(item.price) || 0;
+    const tx = Number(item.tax) || 0;
+    if (prc > 0 && tx > 0) {
+        const rate = (tx / (qty * prc)) * 100;
+        const found = slabs.find(slab => Math.abs(parseTaxRate(slab) - rate) < 1.0);
+        if (found) return found;
+    }
+    return "GST 0%";
+};
+
 const loadList = (key, defaults) => {
     try {
         const saved = JSON.parse(localStorage.getItem(key));
@@ -38,12 +54,38 @@ const generateDocNumber = (prefix) => {
     return `${prefix}-${rand}`;
 };
 
+const formatDate = (dateStr) => {
+    if (!dateStr) return "—";
+    try {
+        // If it is YYYY-MM-DD format, parse manually to avoid timezone shift
+        if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [year, month, day] = dateStr.split("-");
+            const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+            return date.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            });
+        }
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+        });
+    } catch {
+        return dateStr;
+    }
+};
+
 const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPrefill }) => {
     // Dropdowns data
     const [suppliers, setSuppliers] = useState([]);
     const [uoms, setUoms] = useState([]);
     const [taxSlabs, setTaxSlabs] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [categories, setCategories] = useState([]);
 
     // Document settings
     const [docType, setDocType] = useState("invoice"); // 'invoice' | 'po'
@@ -83,6 +125,9 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const [customNameInput, setCustomNameInput] = useState("");
     const [customCodeInput, setCustomCodeInput] = useState("");
     const [customWarehouse, setCustomWarehouse] = useState("");
+    const [customCategoryType, setCustomCategoryType] = useState("");
+    const [customCategory, setCustomCategory] = useState("");
+    const [customCurrency, setCustomCurrency] = useState("INR");
 
     // Sync state
     const [syncInventory, setSyncInventory] = useState(false);
@@ -102,6 +147,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState("all"); // 'all' | 'invoice' | 'po'
     const [previewDoc, setPreviewDoc] = useState(null);
+    const [viewingDoc, setViewingDoc] = useState(null);
     const [editingDocId, setEditingDocId] = useState(null);
     const [alertConfig, setAlertConfig] = useState(null);
 
@@ -146,11 +192,10 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         setUoms(loadList(STORAGE_KEY_UOM, DEFAULT_UOMS));
         setTaxSlabs(loadList(STORAGE_KEY_TAX, DEFAULT_TAX_SLABS));
         setWarehouses(loadList(STORAGE_KEY_WH, DEFAULT_WAREHOUSES));
+        setCategories(loadList(STORAGE_KEY_CAT, DEFAULT_CATEGORIES));
         const savedSuppliers = loadList(STORAGE_KEY_SUP, DEFAULT_SUPPLIERS);
         setSuppliers(savedSuppliers);
-        if (savedSuppliers.length > 0) {
-            setSupplierName(savedSuppliers[0].name);
-        }
+        setSupplierName("");
 
         // Default dates
         const todayStr = new Date().toISOString().split("T")[0];
@@ -238,9 +283,39 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const handleDocTypeChange = (newType) => {
         if (newType === docType) return;
         setDocType(newType);
+        
+        // Reset Document Form Inputs
+        setSelectedItems([]);
+        setCustomerName("");
+        setCustomerAddress("");
+        setCustomerGst("");
+        setCustomerPhone("");
+        setCustomerEmail("");
+        setPaymentMode("UPI");
+        setRefPoNumber("");
+        setShippingAddress("");
+        setPaymentTerms("Net 30");
+        setQuoteRef("");
+        
+        setSupplierName("");
+
+        // Reset Item Pick fields
+        setSelectedItemId("");
+        setItemQty("");
+        setItemPrice("");
+        setItemUom("Pcs");
+        setItemTaxSlab("GST 0%");
+        setCustomNameInput("");
+        setCustomCodeInput("");
+        setCustomWarehouse("");
+        setCustomCategoryType("");
+        setCustomCategory("");
+        setCustomCurrency("INR");
+        
+        // Generate Doc Number and Defaults
         const prefix = newType === "invoice" ? "INV" : "PO";
         setDocNumber(generateDocNumber(prefix));
-        setSelectedItems([]);
+        setSyncInventory(false);
         setErrors({});
         setEditingDocId(null);
         setTerms(newType === "invoice" 
@@ -253,15 +328,40 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const handleTabSwitch = (tabName) => {
         if (tabName === activeTab) return;
         
-        // Reset editor form inputs and items cart
+        // Reset Document Form Inputs
         setSelectedItems([]);
         setCustomerName("");
         setCustomerAddress("");
+        setCustomerGst("");
+        setCustomerPhone("");
+        setCustomerEmail("");
+        setPaymentMode("UPI");
+        setRefPoNumber("");
+        setShippingAddress("");
+        setPaymentTerms("Net 30");
+        setQuoteRef("");
+        
+        setSupplierName("");
+
+        // Reset Item Pick fields
+        setSelectedItemId("");
+        setItemQty("");
+        setItemPrice("");
+        setItemUom("Pcs");
+        setItemTaxSlab("GST 0%");
+        setCustomNameInput("");
+        setCustomCodeInput("");
+        setCustomWarehouse("");
+        setCustomCategoryType("");
+        setCustomCategory("");
+        setCustomCurrency("INR");
+        
         const prefix = docType === "invoice" ? "INV" : "PO";
         setDocNumber(generateDocNumber(prefix));
         setSyncInventory(false);
         setErrors({});
         setEditingDocId(null);
+        setViewingDoc(null);
         
         setActiveTab(tabName);
     };
@@ -285,9 +385,10 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             setItemTaxSlab("GST 18%");
             setCustomNameInput("");
             setCustomCodeInput(generateItemCode());
-            // Safe fallback for custom warehouse
-            const loadedWhs = loadList(STORAGE_KEY_WH, DEFAULT_WAREHOUSES);
-            setCustomWarehouse(loadedWhs[0] || "Main Warehouse");
+            setCustomCategoryType("");
+            setCustomCategory("");
+            setCustomCurrency("INR");
+            setCustomWarehouse("");
             return;
         }
 
@@ -295,7 +396,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         if (found) {
             setItemPrice(found.price || "");
             setItemUom(found.uom || "Pcs");
-            setItemTaxSlab(found.taxSlab || "GST 0%");
+            setItemTaxSlab(detectTaxSlab(found, taxSlabs));
         }
     };
 
@@ -308,6 +409,10 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         if (selectedItemId === "custom") {
             if (!customNameInput.trim()) errs.customName = "Item Name is required.";
             if (!customCodeInput.trim()) errs.customCode = "Item Code is required.";
+            if (!customWarehouse) errs.customWarehouse = "Warehouse is required.";
+            if (!customCategoryType) errs.customCategoryType = "Category Type is required.";
+            if (!customCategory) errs.customCategory = "Category is required.";
+            if (!customCurrency) errs.customCurrency = "Currency is required.";
         }
 
         if (!itemQty || Number(itemQty) <= 0) errs.qty = "Qty must be greater than 0.";
@@ -378,7 +483,12 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             taxableAmount: Math.round(taxable * 100) / 100,
             taxAmount: Math.round(tax * 100) / 100,
             totalAmount: Math.round(total * 100) / 100,
-            isCustom: selectedItemId === "custom"
+            isCustom: selectedItemId === "custom",
+            ...(selectedItemId === "custom" && {
+                category_type: customCategoryType,
+                category: customCategory,
+                currency: customCurrency
+            })
         };
 
         setSelectedItems([...selectedItems, newDocItem]);
@@ -389,6 +499,9 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         setItemPrice("");
         setCustomNameInput("");
         setCustomCodeInput("");
+        setCustomCategoryType("");
+        setCustomCategory("");
+        setCustomCurrency("INR");
         setErrors({});
     };
 
@@ -425,6 +538,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             setShippingAddress("");
             setPaymentTerms("Net 30");
             setQuoteRef("");
+            setSupplierName("");
             const prefix = docType === "invoice" ? "INV" : "PO";
             setDocNumber(generateDocNumber(prefix));
             setSyncInventory(false);
@@ -452,7 +566,13 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             return;
         }
 
+        if (dueDate < docDate) {
+            await showCustomAlert(`Due Date cannot be earlier than ${docType === "po" ? "PO Date" : "Invoice Date"}.`);
+            return;
+        }
+
         if (docType === "po" && !supplierName) {
+            setErrors(prev => ({ ...prev, supplier: "Supplier selection is required." }));
             await showCustomAlert("Please select a Supplier.");
             return;
         }
@@ -472,6 +592,8 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
             }
         }
 
+        const selectedSupObj = docType === "po" ? suppliers.find(s => s.name === supplierName) : null;
+
         // Post updates to catalog inventory & log in ledger
         if (syncInventory) {
             let inventoryCopy = [...items];
@@ -484,11 +606,11 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         name: docItem.name,
                         code: docItem.code,
                         warehouse: docItem.warehouse,
-                        category_type: "Consumable", // standard fallback
-                        category: "Other", // standard fallback
+                        category_type: docItem.category_type || "Consumable",
+                        category: docItem.category || "Other",
                         quantity: docType === "po" ? docItem.quantity : 0,
                         minThreshold: "5",
-                        currency: "INR",
+                        currency: docItem.currency || "INR",
                         price: docItem.price,
                         uom: docItem.uom,
                         taxSlab: docItem.taxSlab,
@@ -591,6 +713,11 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         shippingAddress: docType === "po" ? shippingAddress : "",
                         paymentTerms: docType === "po" ? paymentTerms : "Net 30",
                         quoteRef: docType === "po" ? quoteRef : "",
+                        supplierContactPerson: selectedSupObj ? (selectedSupObj.contactPerson || "") : "",
+                        supplierPhone: selectedSupObj ? (selectedSupObj.phone || "") : "",
+                        supplierEmail: selectedSupObj ? (selectedSupObj.email || "") : "",
+                        supplierGst: selectedSupObj ? (selectedSupObj.gst || "") : "",
+                        supplierCity: selectedSupObj ? (selectedSupObj.city || "") : "",
                         items: [...selectedItems],
                         terms,
                         totalTaxable,
@@ -620,6 +747,11 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                 shippingAddress: docType === "po" ? shippingAddress : "",
                 paymentTerms: docType === "po" ? paymentTerms : "Net 30",
                 quoteRef: docType === "po" ? quoteRef : "",
+                supplierContactPerson: selectedSupObj ? (selectedSupObj.contactPerson || "") : "",
+                supplierPhone: selectedSupObj ? (selectedSupObj.phone || "") : "",
+                supplierEmail: selectedSupObj ? (selectedSupObj.email || "") : "",
+                supplierGst: selectedSupObj ? (selectedSupObj.gst || "") : "",
+                supplierCity: selectedSupObj ? (selectedSupObj.city || "") : "",
                 items: [...selectedItems],
                 terms,
                 totalTaxable,
@@ -770,11 +902,11 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         name: docItem.name,
                         code: docItem.code,
                         warehouse: docItem.warehouse || "Main Warehouse",
-                        category_type: "Consumable",
-                        category: "Other",
+                        category_type: docItem.category_type || "Consumable",
+                        category: docItem.category || "Other",
                         quantity: doc.docType === "po" ? docItem.quantity : 0,
                         minThreshold: "5",
-                        currency: "INR",
+                        currency: docItem.currency || "INR",
                         price: docItem.price,
                         uom: docItem.uom,
                         taxSlab: docItem.taxSlab,
@@ -948,12 +1080,18 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Doc Date <span className="required-star">*</span></label>
+                            <label className="form-label">{docType === "po" ? "PO Date" : "Invoice Date"} <span className="required-star">*</span></label>
                             <input
                                 type="date"
                                 className="form-input"
                                 value={docDate}
-                                onChange={(e) => setDocDate(e.target.value)}
+                                onChange={(e) => {
+                                    const nextDocDate = e.target.value;
+                                    setDocDate(nextDocDate);
+                                    if (dueDate && dueDate < nextDocDate) {
+                                        setDueDate(nextDocDate);
+                                    }
+                                }}
                                 onClick={(e) => {
                                     if (typeof e.target.showPicker === "function") {
                                         try { e.target.showPicker(); } catch (err) {}
@@ -968,6 +1106,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                 type="date"
                                 className="form-input"
                                 value={dueDate}
+                                min={docDate}
                                 onChange={(e) => setDueDate(e.target.value)}
                                 onClick={(e) => {
                                     if (typeof e.target.showPicker === "function") {
@@ -982,16 +1121,23 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                 <div className="form-group">
                                     <label className="form-label">Supplier <span className="required-star">*</span></label>
                                     <select
-                                        className="form-input"
+                                        className={`form-input ${errors.supplier ? "is-invalid" : ""}`}
                                         value={supplierName}
-                                        onChange={(e) => setSupplierName(e.target.value)}
+                                        onChange={(e) => {
+                                            setSupplierName(e.target.value);
+                                            if (errors.supplier) {
+                                                setErrors(prev => ({ ...prev, supplier: null }));
+                                            }
+                                        }}
                                     >
+                                        <option value="">-- Select Supplier --</option>
                                         {suppliers.map(sup => (
                                             <option key={sup.id || sup.name} value={sup.name}>
                                                 {sup.name}
                                             </option>
                                         ))}
                                     </select>
+                                    {errors.supplier && <span className="error-text">{errors.supplier}</span>}
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Quote Reference</label>
@@ -1103,7 +1249,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                     </h5>
                     <form onSubmit={handleAddItem} className="item-picker-grid">
                         <div className="form-group full-row">
-                            <label className="form-label">Select Inventory Item</label>
+                            <label className="form-label">Select Inventory Item <span className="required-star">*</span></label>
                             <select
                                 className={`form-input ${errors.item ? "is-invalid" : ""}`}
                                 value={selectedItemId}
@@ -1111,7 +1257,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             >
                                 <option value="">-- Choose Item from Stock --</option>
                                 {docType === "po" && (
-                                    <option value="custom">+ Add Custom / New Item (Not in stock)</option>
+                                    <option
+                                        value="custom"
+                                        style={{
+                                            fontWeight: "bold",
+                                            color: "#6366f1",
+                                            backgroundColor: "rgba(99, 102, 241, 0.08)"
+                                        }}
+                                    >
+                                        ✨ + Add Custom / New Item (Not in stock)
+                                    </option>
                                 )}
                                 {items.map(itm => (
                                     <option key={itm.id} value={itm.id}>
@@ -1147,23 +1302,79 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                     />
                                     {errors.customCode && <span className="error-text">{errors.customCode}</span>}
                                 </div>
-                                <div className="form-group full-row">
+                                <div className="form-group">
                                     <label className="form-label">Target Warehouse <span className="required-star">*</span></label>
                                     <select
-                                        className="form-input"
+                                        className={`form-input ${errors.customWarehouse ? "is-invalid" : ""}`}
                                         value={customWarehouse}
                                         onChange={(e) => setCustomWarehouse(e.target.value)}
                                     >
+                                        <option value="">-- Select Warehouse --</option>
                                         {warehouses.map(wh => (
                                             <option key={wh} value={wh}>{wh}</option>
                                         ))}
                                     </select>
+                                    {errors.customWarehouse && <span className="error-text">{errors.customWarehouse}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Category Type <span className="required-star">*</span></label>
+                                    <select
+                                        className={`form-input ${errors.customCategoryType ? "is-invalid" : ""}`}
+                                        value={customCategoryType}
+                                        onChange={(e) => setCustomCategoryType(e.target.value)}
+                                    >
+                                        <option value="">-- Select Type --</option>
+                                        <option value="Consumable">Consumable</option>
+                                        <option value="Non-Consumable">Non-Consumable</option>
+                                        <option value="Asset">Asset</option>
+                                        <option value="Non-Asset">Non-Asset</option>
+                                        <option value="Returnable">Returnable</option>
+                                        <option value="Non-Returnable">Non-Returnable</option>
+                                        <option value="Capital">Capital Item</option>
+                                        <option value="Revenue">Revenue Item</option>
+                                    </select>
+                                    {errors.customCategoryType && <span className="error-text">{errors.customCategoryType}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Category <span className="required-star">*</span></label>
+                                    <select
+                                        className={`form-input ${errors.customCategory ? "is-invalid" : ""}`}
+                                        value={customCategory}
+                                        onChange={(e) => setCustomCategory(e.target.value)}
+                                    >
+                                        <option value="">-- Select Category --</option>
+                                        {categories.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                    {errors.customCategory && <span className="error-text">{errors.customCategory}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Buying Currency <span className="required-star">*</span></label>
+                                    <select
+                                        className={`form-input ${errors.customCurrency ? "is-invalid" : ""}`}
+                                        value={customCurrency}
+                                        onChange={(e) => setCustomCurrency(e.target.value)}
+                                    >
+                                        <option value="INR">INR — Indian Rupee</option>
+                                        <option value="USD">USD — US Dollar</option>
+                                        <option value="EUR">EUR — Euro</option>
+                                        <option value="GBP">GBP — British Pound</option>
+                                        <option value="JPY">JPY — Japanese Yen</option>
+                                        <option value="CNY">CNY — Chinese Yuan</option>
+                                        <option value="AUD">AUD — Australian Dollar</option>
+                                        <option value="CAD">CAD — Canadian Dollar</option>
+                                        <option value="CHF">CHF — Swiss Franc</option>
+                                        <option value="SEK">SEK — Swedish Krona</option>
+                                        <option value="NZD">NZD — New Zealand Dollar</option>
+                                    </select>
+                                    {errors.customCurrency && <span className="error-text">{errors.customCurrency}</span>}
                                 </div>
                             </>
                         )}
 
                         <div className="form-group">
-                            <label className="form-label">Quantity</label>
+                            <label className="form-label">Quantity <span className="required-star">*</span></label>
                             <input
                                 type="number"
                                 className={`form-input ${errors.qty ? "is-invalid" : ""}`}
@@ -1175,23 +1386,25 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Unit Price (₹)</label>
+                            <label className="form-label">Unit Price (₹) <span className="required-star">*</span></label>
                             <input
                                 type="number"
-                                className={`form-input ${errors.price ? "is-invalid" : ""}`}
+                                className={`form-input ${errors.price ? "is-invalid" : ""} ${docType === "invoice" ? "readonly-input" : ""}`}
                                 placeholder="0.00"
                                 value={itemPrice}
                                 onChange={(e) => setItemPrice(e.target.value)}
+                                readOnly={docType === "invoice"}
                             />
                             {errors.price && <span className="error-text">{errors.price}</span>}
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Unit (UoM)</label>
+                            <label className="form-label">Unit (UoM) <span className="required-star">*</span></label>
                             <select
-                                className="form-input"
+                                className={`form-input ${docType === "invoice" ? "readonly-input" : ""}`}
                                 value={itemUom}
                                 onChange={(e) => setItemUom(e.target.value)}
+                                disabled={docType === "invoice"}
                             >
                                 {uoms.map(u => (
                                     <option key={u} value={u}>{u}</option>
@@ -1200,11 +1413,12 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Tax Slab (GST %)</label>
+                            <label className="form-label">Tax Slab (GST %) <span className="required-star">*</span></label>
                             <select
-                                className="form-input"
+                                className={`form-input ${docType === "invoice" ? "readonly-input" : ""}`}
                                 value={itemTaxSlab}
                                 onChange={(e) => setItemTaxSlab(e.target.value)}
+                                disabled={docType === "invoice"}
                             >
                                 {taxSlabs.map(slab => (
                                     <option key={slab} value={slab}>{slab}</option>
@@ -1226,12 +1440,13 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             <table className="doc-item-table">
                                 <thead>
                                     <tr>
-                                        <th>Item</th>
-                                        <th>Qty</th>
-                                        <th>Price</th>
-                                        <th>GST</th>
-                                        <th>Total</th>
-                                        <th>Action</th>
+                                        <th style={{ width: "30%" }}>Item</th>
+                                        <th style={{ width: "10%" }} className="text-center">Qty</th>
+                                        <th style={{ width: "12%" }} className="text-end">Price</th>
+                                        <th style={{ width: "16%" }} className="text-end text-nowrap">Taxable Amt</th>
+                                        <th style={{ width: "12%" }} className="text-center">GST</th>
+                                        <th style={{ width: "12%" }} className="text-end">Total</th>
+                                        <th style={{ width: "8%" }} className="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1244,11 +1459,12 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                                     {itm.isCustom && <span className="badge bg-primary ms-1 text-white" style={{fontSize: '9px'}}>Custom</span>}
                                                 </small>
                                             </td>
-                                            <td>{itm.quantity} {itm.uom}</td>
-                                            <td>₹{itm.price.toLocaleString()}</td>
-                                            <td>{itm.taxSlab}</td>
-                                            <td>₹{itm.totalAmount.toLocaleString()}</td>
-                                            <td>
+                                            <td className="text-center text-nowrap">{itm.quantity} {itm.uom}</td>
+                                            <td className="text-end">₹{itm.price.toLocaleString()}</td>
+                                            <td className="text-end">₹{(itm.taxableAmount || (itm.quantity * itm.price)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                                            <td className="text-center">{itm.taxSlab}</td>
+                                            <td className="text-end font-bold">₹{itm.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                                            <td className="text-center">
                                                 <button
                                                     type="button"
                                                     className="delete-item-btn"
@@ -1403,12 +1619,12 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                 <strong className="meta-value">{docNumber}</strong>
                             </div>
                             <div className="meta-row">
-                                <span className="meta-label">Date:</span>
-                                <span className="meta-value">{docDate}</span>
+                                <span className="meta-label">{docType === "po" ? "PO Date:" : "Invoice Date:"}</span>
+                                <span className="meta-value">{formatDate(docDate)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Due Date:</span>
-                                <span className="meta-value">{dueDate}</span>
+                                <span className="meta-value">{formatDate(dueDate)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Payment Terms:</span>
@@ -1440,14 +1656,15 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         <table className="preview-item-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: "6%" }}>S.No</th>
+                                    <th style={{ width: "5%" }}>S.No</th>
                                     <th>Description / Item Details</th>
-                                    <th style={{ width: "12%" }} className="text-end">Qty</th>
-                                    <th style={{ width: "8%" }}>Unit</th>
-                                    <th style={{ width: "14%" }} className="text-end">Price (₹)</th>
-                                    <th style={{ width: "12%" }}>GST Slab</th>
-                                    <th style={{ width: "14%" }} className="text-end">GST Tax (₹)</th>
-                                    <th style={{ width: "16%" }} className="text-end">Amount (₹)</th>
+                                    <th style={{ width: "10%" }} className="text-end">Qty</th>
+                                    <th style={{ width: "7%" }}>Unit</th>
+                                    <th style={{ width: "11%" }} className="text-end">Price (₹)</th>
+                                    <th style={{ width: "13%" }} className="text-end">Taxable Val (₹)</th>
+                                    <th style={{ width: "10%" }}>GST Slab</th>
+                                    <th style={{ width: "11%" }} className="text-end">GST Tax (₹)</th>
+                                    <th style={{ width: "13%" }} className="text-end">Amount (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1462,6 +1679,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             <td className="text-end">{itm.quantity.toLocaleString()}</td>
                                             <td>{itm.uom}</td>
                                             <td className="text-end">{itm.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                            <td className="text-end">{(itm.taxableAmount || (itm.quantity * itm.price)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                             <td>{itm.taxSlab}</td>
                                             <td className="text-end">{itm.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                             <td className="text-end">{itm.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
@@ -1469,7 +1687,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="empty-table-placeholder">
+                                        <td colSpan="9" className="empty-table-placeholder">
                                             No items added. Use the form on the left to add items to this document preview.
                                         </td>
                                     </tr>
@@ -1584,7 +1802,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                         ) : (
                             <div className="history-grid">
                                 {filteredDocs.map((doc) => (
-                                    <div key={doc.id} className="history-card">
+                                    <div 
+                                        key={doc.id} 
+                                        className="history-card clickable-card"
+                                        title="Click to view detailed document"
+                                        onClick={(e) => {
+                                            if (!e.target.closest('.history-card-actions')) {
+                                                setViewingDoc(doc);
+                                            }
+                                        }}
+                                    >
                                         <div className="history-card-top">
                                             <span className={`text-nowrap doc-type-pill ${doc.docType}`}>
                                                 {doc.docType === "po" ? (
@@ -1596,23 +1823,24 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             <span className={`text-nowrap doc-status-pill ${(doc.status || "Done").toLowerCase()}`}>
                                                 {doc.status || "Done"}
                                             </span>
-                                            <span className="text-nowrap doc-date-text">
-                                                {new Date(doc.createdTimestamp).toLocaleDateString("en-IN", {
-                                                    day: '2-digit', month: 'short', year: 'numeric'
-                                                })}
-                                            </span>
                                         </div>
                                         <div className="history-card-body">
-                                            <h4 className="text-nowrap doc-num-title">{doc.docNumber}</h4>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                <h4 className="text-nowrap doc-num-title" style={{ margin: 0 }}>{doc.docNumber}</h4>
+                                                <span className="text-nowrap doc-date-text" title="Document Date">
+                                                    {formatDate(doc.docDate)}
+                                                </span>
+                                            </div>
+                                            <hr className="card-divider" />
                                             <div className="history-meta-info">
                                                 <div className="info-row">
                                                     <span className="info-lbl">Party:</span>
                                                     <span className="info-val"><strong>{doc.partyName}</strong></span>
                                                 </div>
                                                 <div className="info-row">
-                                                    <span className="info-lbl">Due Date:</span>
-                                                    <span className="info-val">{doc.dueDate}</span>
-                                                </div>
+                                                     <span className="info-lbl">Due Date:</span>
+                                                     <span className="info-val">{formatDate(doc.dueDate)}</span>
+                                                 </div>
                                                 <div className="info-row">
                                                     <span className="info-lbl">Items count:</span>
                                                     <span className="info-val">{doc.items?.length || 0} line items</span>
@@ -1668,14 +1896,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             >
                                                 <i className="bi bi-printer-fill me-1"></i> Re-print
                                             </button>
-                                            <button
-                                                type="button"
-                                                className="history-action-btn edit text-nowrap"
-                                                onClick={(e) => handleLoadDocToEditor(doc, e)}
-                                                title="Load into Editor"
-                                            >
-                                                <i className="bi bi-pencil-square me-1"></i> Edit / Load
-                                            </button>
+                                            {(doc.status || "Done") === "Pending" && (
+                                                <button
+                                                    type="button"
+                                                    className="history-action-btn edit text-nowrap"
+                                                    onClick={(e) => handleLoadDocToEditor(doc, e)}
+                                                    title="Load into Editor"
+                                                >
+                                                    <i className="bi bi-pencil-square me-1"></i> Edit / Load
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 className="history-action-btn delete"
@@ -1692,10 +1922,312 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                     </div>
             )}
 
+            {/* Detailed Interactive View Modal */}
+            {viewingDoc && (
+                <div className="doc-modal-overlay" onClick={() => setViewingDoc(null)}>
+                    <div className="doc-modal-card animate-flip-in detailed-view-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="detailed-modal-header">
+                            <div className="header-info">
+                                <span className={`doc-type-badge ${viewingDoc.docType}`}>
+                                    {viewingDoc.docType === "po" ? (
+                                        <><i className="bi bi-cart-check-fill me-1"></i> Purchase Order</>
+                                    ) : (
+                                        <><i className="bi bi-receipt me-1"></i> Sales Invoice</>
+                                    )}
+                                </span>
+                                <h3>{viewingDoc.docNumber}</h3>
+                                <span className={`status-badge ${(viewingDoc.status || "Done").toLowerCase()}`}>
+                                    {viewingDoc.status || "Done"}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className="close-x-btn"
+                                onClick={() => setViewingDoc(null)}
+                                title="Close detailed view"
+                            >
+                                <i className="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        
+                        <div className="detailed-modal-body">
+                            {/* Stepper Progress */}
+                            <div className="doc-stepper">
+                                <div className="step completed">
+                                    <div className="step-num"><i className="bi bi-check-lg"></i></div>
+                                    <span className="step-label">Drafted</span>
+                                </div>
+                                <div className="step-line completed"></div>
+                                <div className="step completed">
+                                    <div className="step-num"><i className="bi bi-check-lg"></i></div>
+                                    <span className="step-label">Saved</span>
+                                </div>
+                                <div className="step-line completed"></div>
+                                <div className={`step ${viewingDoc.status === "Done" ? "completed" : "pending"}`}>
+                                    <div className="step-num">
+                                        {viewingDoc.status === "Done" ? <i className="bi bi-check-lg"></i> : <i className="bi bi-hourglass-split"></i>}
+                                    </div>
+                                    <span className="step-label">Stock Synced</span>
+                                </div>
+                            </div>
+
+                            {/* Two-Column Metadata */}
+                            <div className="metadata-grid">
+                                <div className="meta-card">
+                                    <div className="meta-card-header">
+                                        <i className="bi bi-person-fill text-primary"></i>
+                                        <h4>{viewingDoc.docType === "po" ? "Supplier Details" : "Customer Details"}</h4>
+                                    </div>
+                                    <div className="meta-card-content">
+                                        <div className="meta-data-item">
+                                            <span className="meta-item-label">Name</span>
+                                            <span className="meta-item-val"><strong>{viewingDoc.partyName}</strong></span>
+                                        </div>
+                                        {viewingDoc.docType === "invoice" ? (
+                                            <>
+                                                {viewingDoc.customerPhone && (
+                                                    <div className="meta-data-item">
+                                                        <span className="meta-item-label">Phone</span>
+                                                        <span className="meta-item-val">{viewingDoc.customerPhone}</span>
+                                                    </div>
+                                                )}
+                                                {viewingDoc.customerEmail && (
+                                                    <div className="meta-data-item">
+                                                        <span className="meta-item-label">Email</span>
+                                                        <span className="meta-item-val">{viewingDoc.customerEmail}</span>
+                                                    </div>
+                                                )}
+                                                {viewingDoc.customerGst && (
+                                                    <div className="meta-data-item">
+                                                        <span className="meta-item-label">GSTIN</span>
+                                                        <span className="meta-item-val text-uppercase">{viewingDoc.customerGst}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (() => {
+                                            const supplierObj = suppliers.find(s => s.name.trim().toLowerCase() === viewingDoc.partyName.trim().toLowerCase()) || {};
+                                            const contactPerson = viewingDoc.supplierContactPerson || supplierObj.contactPerson;
+                                            const phone = viewingDoc.supplierPhone || supplierObj.phone;
+                                            const email = viewingDoc.supplierEmail || supplierObj.email;
+                                            const gst = viewingDoc.supplierGst || supplierObj.gst;
+                                            const city = viewingDoc.supplierCity || supplierObj.city;
+                                            const address = viewingDoc.partyAddress || supplierObj.address;
+                                            return (
+                                                <>
+                                                    {contactPerson && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">Contact Person</span>
+                                                            <span className="meta-item-val">{contactPerson}</span>
+                                                        </div>
+                                                    )}
+                                                    {phone && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">Phone</span>
+                                                            <span className="meta-item-val">{phone}</span>
+                                                        </div>
+                                                    )}
+                                                    {email && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">Email</span>
+                                                            <span className="meta-item-val">{email}</span>
+                                                        </div>
+                                                    )}
+                                                    {gst && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">GSTIN</span>
+                                                            <span className="meta-item-val text-uppercase">{gst}</span>
+                                                        </div>
+                                                    )}
+                                                    {city && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">City</span>
+                                                            <span className="meta-item-val">{city}</span>
+                                                        </div>
+                                                    )}
+                                                    {address && (
+                                                        <div className="meta-data-item">
+                                                            <span className="meta-item-label">Address</span>
+                                                            <span className="meta-item-val pre-wrap">{address}</span>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                        {viewingDoc.docType === "invoice" && viewingDoc.partyAddress && (
+                                            <div className="meta-data-item">
+                                                <span className="meta-item-label">Address</span>
+                                                <span className="meta-item-val pre-wrap">{viewingDoc.partyAddress}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="meta-card">
+                                    <div className="meta-card-header">
+                                        <i className="bi bi-file-earmark-text-fill text-primary"></i>
+                                        <h4>Document Info</h4>
+                                    </div>
+                                    <div className="meta-card-content">
+                                        <div className="meta-data-item">
+                                             <span className="meta-item-label">{viewingDoc.docType === "po" ? "PO Date" : "Invoice Date"}</span>
+                                             <span className="meta-item-val">{formatDate(viewingDoc.docDate)}</span>
+                                         </div>
+                                         <div className="meta-data-item">
+                                             <span className="meta-item-label">Due Date</span>
+                                             <span className="meta-item-val">{formatDate(viewingDoc.dueDate)}</span>
+                                         </div>
+                                        {viewingDoc.docType === "invoice" ? (
+                                            <div className="meta-data-item">
+                                                <span className="meta-item-label">Payment Mode</span>
+                                                <span className="meta-item-val">{viewingDoc.paymentMode || "UPI"}</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {viewingDoc.paymentTerms && (
+                                                    <div className="meta-data-item">
+                                                        <span className="meta-item-label">Payment Terms</span>
+                                                        <span className="meta-item-val">{viewingDoc.paymentTerms}</span>
+                                                    </div>
+                                                )}
+                                                {viewingDoc.quoteRef && (
+                                                    <div className="meta-data-item">
+                                                        <span className="meta-item-label">Quote Ref</span>
+                                                        <span className="meta-item-val">{viewingDoc.quoteRef}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        {viewingDoc.shippingAddress && (
+                                            <div className="meta-data-item">
+                                                <span className="meta-item-label">Shipping Addr</span>
+                                                <span className="meta-item-val pre-wrap">{viewingDoc.shippingAddress}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Table of items */}
+                            <div className="items-table-section">
+                                <h4>Line Items ({viewingDoc.items?.length || 0})</h4>
+                                <div className="table-container">
+                                    <table className="detailed-items-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Item Name</th>
+                                                <th>Code</th>
+                                                <th>Warehouse</th>
+                                                <th>Qty</th>
+                                                <th>Price</th>
+                                                <th>Taxable Value</th>
+                                                <th>Tax Slab</th>
+                                                <th className="text-end">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {viewingDoc.items && viewingDoc.items.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td>{idx + 1}</td>
+                                                    <td>
+                                                        <div className="d-flex align-items-center gap-2">
+                                                            <strong>{item.name}</strong>
+                                                            {item.isCustom && <span className="custom-item-badge">New/Custom</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-nowrap"><code>{item.code}</code></td>
+                                                    <td>{item.warehouse || "Main Warehouse"}</td>
+                                                    <td>{item.quantity} <small className="text-muted">{item.uom}</small></td>
+                                                    <td>₹{item.price.toLocaleString("en-IN")}</td>
+                                                    <td>₹{(item.taxableAmount || (item.quantity * item.price)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                                                    <td>{item.taxSlab}</td>
+                                                    <td className="text-end font-bold">₹{item.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Summary Totals Cards */}
+                            <div className="summary-totals-bar">
+                                <div className="total-box-small">
+                                    <span>Taxable Amt:</span>
+                                    <strong>₹{viewingDoc.totalTaxable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                                </div>
+                                <div className="total-box-small">
+                                    <span>Total Tax:</span>
+                                    <strong>₹{viewingDoc.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                                </div>
+                                <div className="total-box-large">
+                                    <span>Grand Total:</span>
+                                    <strong>₹{viewingDoc.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                                </div>
+                            </div>
+
+                            {/* Terms section */}
+                            {viewingDoc.terms && (
+                                <div className="terms-section">
+                                    <h5>Notes & Terms:</h5>
+                                    <p className="pre-wrap">{viewingDoc.terms}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Action Footer */}
+                        <div className="detailed-modal-footer">
+                            <div className="left-actions">
+                                {viewingDoc.status === "Pending" && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="action-btn done"
+                                            onClick={(e) => {
+                                                setViewingDoc(null);
+                                                handleMarkDocDone(viewingDoc, e);
+                                            }}
+                                        >
+                                            <i className="bi bi-check-circle-fill"></i> Mark Done & Sync
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="action-btn edit"
+                                            onClick={(e) => {
+                                                setViewingDoc(null);
+                                                handleLoadDocToEditor(viewingDoc, e);
+                                            }}
+                                        >
+                                            <i className="bi bi-pencil-square"></i> Edit
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    type="button"
+                                    className="action-btn print"
+                                    onClick={() => {
+                                        setViewingDoc(null);
+                                        setPreviewDoc(viewingDoc);
+                                    }}
+                                >
+                                    <i className="bi bi-printer-fill"></i> Open Print View
+                                </button>
+                            </div>
+                            <button
+                                type="button"
+                                className="action-btn close"
+                                onClick={() => setViewingDoc(null)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Live Printable Preview Modal */}
             {previewDoc && (
                 <div className="doc-modal-overlay" onClick={() => setPreviewDoc(null)}>
-                    <div className="doc-modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                    <div className="doc-modal-card animate-flip-in" onClick={(e) => e.stopPropagation()}>
                         <div className="doc-modal-header no-print">
                             <span className="modal-title">
                                 <i className="bi bi-file-earmark-text-fill text-primary me-2"></i>
@@ -1783,12 +2315,12 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             <strong className="meta-value">{previewDoc.docNumber}</strong>
                                         </div>
                                         <div className="meta-row">
-                                            <span className="meta-label">Date:</span>
-                                            <span className="meta-value">{previewDoc.docDate}</span>
+                                             <span className="meta-label">{previewDoc.docType === "po" ? "PO Date:" : "Invoice Date:"}</span>
+                                            <span className="meta-value">{formatDate(previewDoc.docDate)}</span>
                                         </div>
                                         <div className="meta-row">
                                             <span className="meta-label">Due Date:</span>
-                                            <span className="meta-value">{previewDoc.dueDate}</span>
+                                            <span className="meta-value">{formatDate(previewDoc.dueDate)}</span>
                                         </div>
                                         <div className="meta-row">
                                             <span className="meta-label">Payment Terms:</span>
@@ -1820,14 +2352,15 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                     <table className="preview-item-table">
                                         <thead>
                                             <tr>
-                                                <th style={{ width: "6%" }}>S.No</th>
+                                                <th style={{ width: "5%" }}>S.No</th>
                                                 <th>Description / Item Details</th>
-                                                <th style={{ width: "12%" }} className="text-end">Qty</th>
-                                                <th style={{ width: "8%" }}>Unit</th>
-                                                <th style={{ width: "14%" }} className="text-end">Price (₹)</th>
-                                                <th style={{ width: "12%" }}>GST Slab</th>
-                                                <th style={{ width: "14%" }} className="text-end">GST Tax (₹)</th>
-                                                <th style={{ width: "16%" }} className="text-end">Amount (₹)</th>
+                                                <th style={{ width: "10%" }} className="text-end">Qty</th>
+                                                <th style={{ width: "7%" }}>Unit</th>
+                                                <th style={{ width: "11%" }} className="text-end">Price (₹)</th>
+                                                <th style={{ width: "13%" }} className="text-end">Taxable Val (₹)</th>
+                                                <th style={{ width: "10%" }}>GST Slab</th>
+                                                <th style={{ width: "11%" }} className="text-end">GST Tax (₹)</th>
+                                                <th style={{ width: "13%" }} className="text-end">Amount (₹)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1842,6 +2375,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                                         <td className="text-end">{itm.quantity.toLocaleString()}</td>
                                                         <td>{itm.uom}</td>
                                                         <td className="text-end">{itm.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                        <td className="text-end">{(itm.taxableAmount || (itm.quantity * itm.price)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                         <td>{itm.taxSlab}</td>
                                                         <td className="text-end">{itm.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                         <td className="text-end">{itm.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
@@ -1849,7 +2383,7 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                                 ))
                                             ) : (
                                                 <tr>
-                                                    <td colSpan="8" className="empty-table-placeholder">No items</td>
+                                                    <td colSpan="9" className="empty-table-placeholder">No items</td>
                                                 </tr>
                                             )}
                                         </tbody>

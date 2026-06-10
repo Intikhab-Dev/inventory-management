@@ -35,11 +35,25 @@ body.dark .sidebar-brand {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* 🔹 TOGGLE COLLAPSE BUTTON */
-.sidebar-toggle-btn {
+/* 🔹 HEADER ACTIONS CONTAINER */
+.sidebar-header-actions {
   position: absolute;
   top: 29px; /* centered vertically with the 42px tall brand logo */
   right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1010;
+  transition: all 0.25s ease;
+}
+
+/* Center actions container on collapsed sidebar */
+.sidebar.collapsed .sidebar-header-actions {
+  right: 24px;
+}
+
+/* 🔹 TOGGLE COLLAPSE BUTTON */
+.sidebar-toggle-btn {
   background: #f3f4f6;
   border: none;
   color: #374151;
@@ -51,7 +65,6 @@ body.dark .sidebar-brand {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 1010;
   transition: all 0.25s ease;
   outline: none;
 }
@@ -70,11 +83,6 @@ body.dark .sidebar-toggle-btn {
 body.dark .sidebar-toggle-btn:hover {
   background: #334155;
   color: #818cf8;
-}
-
-/* Center it exactly on collapsed sidebar (width: 80px) */
-.sidebar.collapsed .sidebar-toggle-btn {
-  right: 24px;
 }
 
 
@@ -503,4 +511,111 @@ body.dark .sidebar-menu::-webkit-scrollbar-thumb {
 body.dark .sidebar,
 body.dark .sidebar-menu {
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* ─── SIDEBAR REORDER CUSTOMIZATION ─── */
+.sidebar-link-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.sidebar-link-container .sidebar-link {
+  flex: 1;
+}
+
+.sidebar-link-container.dragging {
+  opacity: 0.4;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+}
+
+/* Disable child pointer-events ONLY when dragging is active to prevent drag flickering */
+.sidebar-menu.is-dragging .sidebar-link-container * {
+  pointer-events: none;
+}
+
+/* Grip handle styling */
+.grip-handle {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 16px;
+  cursor: grab;
+  opacity: 0; /* Hidden by default */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+body.dark .grip-handle {
+  color: #64748b;
+}
+
+/* If badge is present, badge has margin-left: auto, so grip-handle shouldn't have margin-left: auto but just sit next to it */
+.sidebar-link .link-badge ~ .grip-handle {
+  margin-left: 8px;
+}
+
+/* On hover of the link container, show the grip handle */
+.sidebar-link-container:hover .grip-handle {
+  opacity: 0.6;
+}
+
+/* Hovering directly over the grip handle */
+.sidebar-link-container:hover .grip-handle:hover {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+}
+
+body.dark .sidebar-link-container:hover .grip-handle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #818cf8;
+}
+
+.sidebar-link-container.dragging .grip-handle {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+/* Drag-over indicator lines */
+.sidebar-link-container {
+  position: relative;
+}
+
+.sidebar-link-container.drag-over-above::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  background: #6366f1;
+  border-radius: 99px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.sidebar-link-container.drag-over-below::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  background: #6366f1;
+  border-radius: 99px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+body.dark .sidebar-link-container.drag-over-above::before,
+body.dark .sidebar-link-container.drag-over-below::after {
+  background: #818cf8;
 }

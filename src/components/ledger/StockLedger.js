@@ -3,6 +3,99 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { transactionService } from "../../services/transactionService";
 import "./StockLedger.css";
+const renderReasonBadge = (reason) => {
+    if (!reason) return <span className="reason-badge reason-default">—</span>;
+
+    const lowerReason = reason.toLowerCase();
+    
+    // 1. Purchase Order Received
+    if (lowerReason.includes("purchase order") || lowerReason.includes("po #")) {
+        return (
+            <span className="reason-badge reason-po">
+                <i className="bi bi-cart-check-fill me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 2. Sales Invoice Dispatched
+    if (lowerReason.includes("sales invoice") || lowerReason.includes("invoice #")) {
+        return (
+            <span className="reason-badge reason-invoice">
+                <i className="bi bi-receipt me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 3. Initial Stock
+    if (lowerReason.includes("initial stock")) {
+        return (
+            <span className="reason-badge reason-initial">
+                <i className="bi bi-play-circle-fill me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 4. Transfer OUT
+    if (lowerReason.includes("transfer out")) {
+        return (
+            <span className="reason-badge reason-transfer-out">
+                <i className="bi bi-arrow-left-right me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 5. Transfer IN
+    if (lowerReason.includes("transfer in")) {
+        return (
+            <span className="reason-badge reason-transfer-in">
+                <i className="bi bi-arrow-left-right me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 6. Manual Adjustment (Increase or Restock)
+    if (lowerReason.includes("manual adjustment (increase)") || lowerReason.includes("restock")) {
+        return (
+            <span className="reason-badge reason-restock">
+                <i className="bi bi-plus-circle-fill me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 7. Manual Adjustment (Decrease or Dispatch / Sales)
+    if (lowerReason.includes("manual adjustment (decrease)") || lowerReason.includes("dispatch") || lowerReason.includes("sales")) {
+        return (
+            <span className="reason-badge reason-dispatch">
+                <i className="bi bi-dash-circle-fill me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // 8. Audit reconciliation
+    if (lowerReason.includes("audit") || lowerReason.includes("reconciliation")) {
+        return (
+            <span className="reason-badge reason-audit">
+                <i className="bi bi-clipboard-check-fill me-1"></i>
+                {reason}
+            </span>
+        );
+    }
+    
+    // Default fallback
+    return (
+        <span className="reason-badge reason-default">
+            <i className="bi bi-arrow-right-short me-1"></i>
+            {reason}
+        </span>
+    );
+};
 
 const StockLedger = ({ items = [] }) => {
     const [transactions, setTransactions] = useState([]);
@@ -10,6 +103,37 @@ const StockLedger = ({ items = [] }) => {
     const [typeFilter, setTypeFilter] = useState(""); // "" | "IN" | "OUT"
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [alertConfig, setAlertConfig] = useState(null);
+
+    const showCustomAlert = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "alert",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                }
+            });
+        });
+    };
+
+    const showCustomConfirm = (msg) => {
+        return new Promise((resolve) => {
+            setAlertConfig({
+                message: msg,
+                type: "confirm",
+                onConfirm: () => {
+                    setAlertConfig(null);
+                    resolve(true);
+                },
+                onCancel: () => {
+                    setAlertConfig(null);
+                    resolve(false);
+                }
+            });
+        });
+    };
 
     // Load ledger logs on mount
     const fetchTransactions = () => {
@@ -51,17 +175,18 @@ const StockLedger = ({ items = [] }) => {
     }, [transactions, search, typeFilter, dateFrom, dateTo]);
 
     // ── Clear Ledger Log ──
-    const handleClearLedger = () => {
-        if (window.confirm("⚠️ Are you sure you want to clear all transaction logs? This action is permanent!")) {
+    const handleClearLedger = async () => {
+        const confirmed = await showCustomConfirm("⚠️ Are you sure you want to clear all transaction logs? This action is permanent!");
+        if (confirmed) {
             transactionService.clearTransactions();
             setTransactions([]);
         }
     };
 
     // ── Export Ledger to Excel ──
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (filteredTransactions.length === 0) {
-            alert("No ledger data to export.");
+            await showCustomAlert("No ledger data to export.");
             return;
         }
 
@@ -226,7 +351,7 @@ const StockLedger = ({ items = [] }) => {
                                         <strong>{tx.type === "IN" ? "+" : "-"}{tx.qty}</strong> <small className="text-muted">{items.find(i => i.code === tx.itemId)?.uom || "units"}</small>
                                     </td>
                                     <td>
-                                        <span className="ledger-reason-pill">{tx.reason}</span>
+                                        {renderReasonBadge(tx.reason)}
                                     </td>
                                     <td className="operator-col">{tx.user}</td>
                                     <td className="notes-col">{tx.notes || "—"}</td>
@@ -236,6 +361,52 @@ const StockLedger = ({ items = [] }) => {
                     </table>
                 )}
             </div>
+
+            {/* Custom Alert/Confirm Dialog Popup */}
+            {alertConfig && (
+                <div className="custom-alert-overlay no-print">
+                    <div className="custom-alert-card animate-scale-up">
+                        <div className="custom-alert-icon">
+                            {alertConfig.type === "confirm" ? (
+                                <i className="bi bi-exclamation-triangle-fill text-warning"></i>
+                            ) : (
+                                <i className="bi bi-info-circle-fill text-primary"></i>
+                            )}
+                        </div>
+                        <div className="custom-alert-body">
+                            <p className="custom-alert-message" style={{ whiteSpace: 'pre-wrap' }}>{alertConfig.message}</p>
+                        </div>
+                        <div className="custom-alert-actions">
+                            {alertConfig.type === "confirm" ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="alert-btn btn-cancel"
+                                        onClick={alertConfig.onCancel}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="alert-btn btn-confirm"
+                                        onClick={alertConfig.onConfirm}
+                                    >
+                                        Confirm
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="alert-btn btn-ok"
+                                    onClick={alertConfig.onConfirm}
+                                >
+                                    OK
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
