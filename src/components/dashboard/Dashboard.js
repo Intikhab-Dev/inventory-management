@@ -13,6 +13,7 @@ const Dashboard = ({ items, darkMode }) => {
   const [transactions, setTransactions] = useState([]);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showRangeDropdown, setShowRangeDropdown] = useState(false);
+  const [expandWarehouseLayout, setExpandWarehouseLayout] = useState(false);
   const warehouseRef = useRef(null);
   const rangeRef = useRef(null);
   const now = Date.now();
@@ -1519,126 +1520,137 @@ const Dashboard = ({ items, darkMode }) => {
         {/* VISUAL WAREHOUSE RACK LAYOUT & HEATMAP (col-12 style) */}
         <div className="warehouse-layout-card card-box grid-col-12 mt-4">
           <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h3>
-              <i className="bi bi-grid-3x3-gap text-success me-2"></i>
-              Warehouse Visual Rack Layout & Heatmap
-            </h3>
-            <div className="d-flex align-items-center gap-3 flex-wrap">
-              {/* Warehouse selector inside card */}
-              <select 
-                className="form-select layout-wh-select"
-                value={selectedLayoutWarehouse}
-                onChange={(e) => setSelectedLayoutWarehouse(e.target.value)}
-                disabled={warehouseFilter !== "all"}
-              >
-                <option value="all">All Warehouses</option>
-                {warehouses.map(w => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
-              {warehouseFilter !== "all" && (
-                <span className="text-muted" style={{ fontSize: "12px" }}>
-                  Filtered by header
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="layout-card-body mt-3">
-            {/* Legend */}
-            <div className="layout-legend d-flex flex-wrap gap-3 mb-4">
-              <div className="legend-item">
-                <span className="legend-dot healthy"></span>
-                <span>Healthy Stock ({'>'} 2.5x threshold)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot moderate"></span>
-                <span>Moderate Stock</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot low"></span>
-                <span>Low Stock (≤ threshold)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot empty"></span>
-                <span>Empty Slot</span>
-              </div>
-            </div>
-
-            {/* Racks Grid container */}
-            {warehouses.length === 0 ? (
-              <p className="text-muted text-center py-4">No warehouses configured in settings.</p>
-            ) : (
-              <div className="racks-grid-container">
-                <div className="racks-grid">
-                  {layoutGrid.map((slot) => {
-                    const rowClass = "row-" + slot.slotId.charAt(0).toLowerCase();
-                    return (
-                      <div 
-                        key={slot.slotId} 
-                        className={`rack-slot-box ${slot.status} ${rowClass}`}
-                      >
-                        <div className="slot-id">{slot.slotId}</div>
-                        {slot.item ? (
-                          <div className="slot-content">
-                            <span className="item-initials">
-                              {slot.item.name.substring(0, 2).toUpperCase()}
-                            </span>
-                            <span className="item-qty-tag">
-                              {slot.item.quantity} {slot.item.uom || "units"}
-                            </span>
-                            
-                            {/* Hover Tooltip */}
-                            <div className="slot-tooltip">
-                              <div className="tooltip-title">{slot.item.name}</div>
-                              <div className="tooltip-sku">{slot.item.code}</div>
-                              <div className="tooltip-divider"></div>
-                              <div className="tooltip-info">
-                                <span>Category:</span>
-                                <strong>{slot.item.category || "General"}</strong>
-                              </div>
-                              <div className="tooltip-info">
-                                <span>Stock:</span>
-                                <strong className={`status-text ${slot.status}`}>
-                                  {slot.item.quantity} {slot.item.uom || "units"}
-                                </strong>
-                              </div>
-                              <div className="tooltip-info">
-                                <span>Min Safety:</span>
-                                <strong>{slot.item.minThreshold || 5} {slot.item.uom || "units"}</strong>
-                              </div>
-                              <div className="tooltip-info">
-                                <span>Outflow Rate:</span>
-                                <strong>{(slot.item.dailyDemand || 0).toFixed(2)}/day</strong>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="slot-empty-text">Empty</div>
-                            {/* Empty Slot Tooltip */}
-                            <div className="slot-tooltip">
-                              <div className="tooltip-title text-muted">Slot {slot.slotId}</div>
-                              <div className="tooltip-sku">Available Shelf Space</div>
-                              <div className="tooltip-divider"></div>
-                              <div className="tooltip-info">
-                                <span>Status:</span>
-                                <strong style={{ color: "#94a3b8" }}>Empty Slot</strong>
-                              </div>
-                              <div className="tooltip-info">
-                                <span>Action:</span>
-                                <strong style={{ color: "#818cf8" }}>Ready for stock</strong>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+            <button 
+              className="accordion-toggle-btn"
+              onClick={() => setExpandWarehouseLayout(!expandWarehouseLayout)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+            >
+              <i className={`bi ${expandWarehouseLayout ? 'bi-chevron-up' : 'bi-chevron-down'}`} style={{ fontSize: '18px', color: '#4f46e5' }}></i>
+              <h3 style={{ margin: 0 }}>
+                <i className="bi bi-grid-3x3-gap text-success me-2"></i>
+                Warehouse Visual Rack Layout & Heatmap
+              </h3>
+            </button>
+            {expandWarehouseLayout && (
+              <div className="d-flex align-items-center gap-3 flex-wrap">
+                {/* Warehouse selector inside card */}
+                <select 
+                  className="form-select layout-wh-select"
+                  value={selectedLayoutWarehouse}
+                  onChange={(e) => setSelectedLayoutWarehouse(e.target.value)}
+                  disabled={warehouseFilter !== "all"}
+                >
+                  <option value="all">All Warehouses</option>
+                  {warehouses.map(w => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+                {warehouseFilter !== "all" && (
+                  <span className="text-muted" style={{ fontSize: "12px" }}>
+                    Filtered by header
+                  </span>
+                )}
               </div>
             )}
           </div>
+
+          {expandWarehouseLayout && (
+            <div className="layout-card-body mt-3">
+              {/* Legend */}
+              <div className="layout-legend d-flex flex-wrap gap-3 mb-4">
+                <div className="legend-item">
+                  <span className="legend-dot healthy"></span>
+                  <span>Healthy Stock ({'>'} 2.5x threshold)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot moderate"></span>
+                  <span>Moderate Stock</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot low"></span>
+                  <span>Low Stock (≤ threshold)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot empty"></span>
+                  <span>Empty Slot</span>
+                </div>
+              </div>
+
+              {/* Racks Grid container */}
+              {warehouses.length === 0 ? (
+                <p className="text-muted text-center py-4">No warehouses configured in settings.</p>
+              ) : (
+                <div className="racks-grid-container">
+                  <div className="racks-grid">
+                    {layoutGrid.map((slot) => {
+                      const rowClass = "row-" + slot.slotId.charAt(0).toLowerCase();
+                      return (
+                        <div 
+                          key={slot.slotId} 
+                          className={`rack-slot-box ${slot.status} ${rowClass}`}
+                        >
+                          <div className="slot-id">{slot.slotId}</div>
+                          {slot.item ? (
+                            <div className="slot-content">
+                              <span className="item-initials">
+                                {slot.item.name.substring(0, 2).toUpperCase()}
+                              </span>
+                              <span className="item-qty-tag">
+                                {slot.item.quantity} {slot.item.uom || "units"}
+                              </span>
+                              
+                              {/* Hover Tooltip */}
+                              <div className="slot-tooltip">
+                                <div className="tooltip-title">{slot.item.name}</div>
+                                <div className="tooltip-sku">{slot.item.code}</div>
+                                <div className="tooltip-divider"></div>
+                                <div className="tooltip-info">
+                                  <span>Category:</span>
+                                  <strong>{slot.item.category || "General"}</strong>
+                                </div>
+                                <div className="tooltip-info">
+                                  <span>Stock:</span>
+                                  <strong className={`status-text ${slot.status}`}>
+                                    {slot.item.quantity} {slot.item.uom || "units"}
+                                  </strong>
+                                </div>
+                                <div className="tooltip-info">
+                                  <span>Min Safety:</span>
+                                  <strong>{slot.item.minThreshold || 5} {slot.item.uom || "units"}</strong>
+                                </div>
+                                <div className="tooltip-info">
+                                  <span>Outflow Rate:</span>
+                                  <strong>{(slot.item.dailyDemand || 0).toFixed(2)}/day</strong>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="slot-empty-text">Empty</div>
+                              {/* Empty Slot Tooltip */}
+                              <div className="slot-tooltip">
+                                <div className="tooltip-title text-muted">Slot {slot.slotId}</div>
+                                <div className="tooltip-sku">Available Shelf Space</div>
+                                <div className="tooltip-divider"></div>
+                                <div className="tooltip-info">
+                                  <span>Status:</span>
+                                  <strong style={{ color: "#94a3b8" }}>Empty Slot</strong>
+                                </div>
+                                <div className="tooltip-info">
+                                  <span>Action:</span>
+                                  <strong style={{ color: "#818cf8" }}>Ready for stock</strong>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
       </div>

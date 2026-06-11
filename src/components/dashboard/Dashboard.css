@@ -203,6 +203,10 @@ body.dark .custom-dropdown-item.selected {
   }
 }
 
+.suppliers-card > .table-responsive {
+  flex-grow: 1; /* Allow table to grow and fill available space */
+  overflow-y: auto; /* Ensure table content scrolls within the constrained card height */
+}
 /* ==========================================================================
    GRID LAYOUT
    ========================================================================== */
@@ -1209,12 +1213,53 @@ body.dark .status-ratio-badge {
   }
 }
 
+.suppliers-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 450px;
+}
+
+.suppliers-card .card-header {
+  flex-shrink: 0;
+}
+
+.suppliers-card .table-responsive {
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* ==========================================================================
    WAREHOUSE RACK LAYOUT & HEATMAP
    ========================================================================== */
 
 .warehouse-layout-card {
   width: 100%;
+}
+
+.accordion-toggle-btn {
+  transition: all 0.3s ease;
+  color: inherit;
+}
+
+.accordion-toggle-btn:hover {
+  transform: scale(1.02);
+}
+
+.layout-card-body {
+  animation: slideDown 0.3s ease-in-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
+    overflow: visible;
+  }
 }
 
 .layout-wh-select {
