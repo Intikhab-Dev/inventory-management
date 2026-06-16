@@ -1098,7 +1098,7 @@ const Dashboard = ({ items, darkMode }) => {
                 <i className="bi bi-currency-rupee text-info me-1"></i>
                 Total Value
               </span>
-              <h3>₹ {totalValue.toLocaleString()}</h3>
+              <h4 className="fw-bold text-nowrap mt-3"><i className="bi bi-currency-rupee text-info me-1"></i>{totalValue.toLocaleString()}</h4>
             </div>
           </div>
 
