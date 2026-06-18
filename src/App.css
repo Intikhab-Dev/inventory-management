@@ -181,3 +181,58 @@ body.dark .app-layout {
     print-color-adjust: exact;
   }
 }
+
+/* 🔝 Scroll To Top Button */
+.scroll-to-top-btn {
+  position: fixed;
+  right: 30px;
+  bottom: 30px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  cursor: pointer;
+  z-index: 999;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
+  transition: all 0.2s ease;
+  animation: scrollTopPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scroll-to-top-btn:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.5);
+  background: linear-gradient(135deg, #4338ca, #6d28d9);
+}
+
+.scroll-to-top-btn:active {
+  transform: scale(0.95) translateY(0);
+}
+
+/* Scroll-to-top responsive placement for mobile layouts */
+@media (max-width: 768px) {
+  .scroll-to-top-btn {
+    right: 20px;
+    bottom: 80px; /* avoids collision with mobile bottom nav bar */
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+  }
+}
+
+@keyframes scrollTopPop {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

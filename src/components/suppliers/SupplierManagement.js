@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./SupplierManagement.css";
+import SupplierViewModal from "./SupplierViewModal";
 
 const STORAGE_KEY = "suppliers";
 
@@ -27,6 +28,7 @@ const SupplierManagement = ({ items = [] }) => {
     const [errors, setErrors]         = useState({});
     const [search, setSearch]         = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [viewingSupplier, setViewingSupplier] = useState(null);
 
     // Item count per supplier
     const itemCountMap = React.useMemo(() => {
@@ -267,7 +269,22 @@ const SupplierManagement = ({ items = [] }) => {
                     {filtered.map(s => {
                         const itemCount = itemCountMap[s.name] || 0;
                         return (
-                            <div key={s.id} className={`supplier-card ${s.status !== "active" ? "s-card-inactive" : ""}`}>
+                            <div 
+                                key={s.id} 
+                                className={`supplier-card ${s.status !== "active" ? "s-card-inactive" : ""}`}
+                                onClick={(e) => {
+                                    if (
+                                        e.target.closest(".scard-footer") || 
+                                        e.target.closest(".scard-link") || 
+                                        e.target.tagName.toLowerCase() === "a" || 
+                                        e.target.closest("a")
+                                    ) {
+                                        return;
+                                    }
+                                    setViewingSupplier(s);
+                                }}
+                                style={{ cursor: "pointer" }}
+                            >
                                 {/* Card Header */}
                                 <div className="scard-header">
                                     <div className="scard-avatar">
@@ -356,6 +373,14 @@ const SupplierManagement = ({ items = [] }) => {
                     </div>
                 </div>
             )}
+
+            {/* ── Supplier View Modal ── */}
+            <SupplierViewModal
+                show={!!viewingSupplier}
+                onClose={() => setViewingSupplier(null)}
+                supplier={viewingSupplier}
+                items={items}
+            />
         </div>
     );
 };

@@ -40,6 +40,7 @@ function App() {
   const [viewModal, setViewModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -61,6 +62,25 @@ function App() {
   useEffect(() => {
     localStorage.setItem("current_page", page);
   }, [page]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -729,6 +749,17 @@ function App() {
 
       {/* Toast */}
       {toast.show && <div className="toast-box">{toast.message}</div>}
+
+      {/* Scroll to Top Button */}
+      {showScrollTop && (
+        <button 
+          className="scroll-to-top-btn no-print" 
+          onClick={scrollToTop}
+          title="Scroll to Top"
+        >
+          <i className="bi bi-arrow-up-short"></i>
+        </button>
+      )}
     </div>
   );
 }
