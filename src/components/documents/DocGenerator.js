@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { transactionService } from "../../services/transactionService";
 import { activityService } from "../../services/activityService";
+import { mailService } from "../../services/mailService";
 import "./DocGenerator.css";
 
 // Read master lists from Settings
@@ -79,7 +80,7 @@ const formatDate = (dateStr) => {
     }
 };
 
-const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPrefill }) => {
+const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPrefill, showToast }) => {
     // Dropdowns data
     const [suppliers, setSuppliers] = useState([]);
     const [uoms, setUoms] = useState([]);
@@ -150,6 +151,127 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
     const [viewingDoc, setViewingDoc] = useState(null);
     const [editingDocId, setEditingDocId] = useState(null);
     const [alertConfig, setAlertConfig] = useState(null);
+
+    // Simulated email service state
+    const [emailingDoc, setEmailingDoc] = useState(null);
+    const [emailTo, setEmailTo] = useState("");
+    const [emailSubject, setEmailSubject] = useState("");
+    const [emailBody, setEmailBody] = useState("");
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [emailTemplate, setEmailTemplate] = useState("formal");
+    const [emailLogs, setEmailLogs] = useState([]);
+    const [selectedLogEmail, setSelectedLogEmail] = useState(null);
+
+    // Fetch email logs on mount and when tab changes
+    useEffect(() => {
+        setEmailLogs(mailService.getEmails());
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === "email_logs") {
+            setEmailLogs(mailService.getEmails());
+        }
+    }, [activeTab]);
+
+    const getEmailTemplateBody = (templateType, doc) => {
+        if (!doc) return "";
+        const formattedDate = formatDate(doc.docDate);
+        const formattedTotal = doc.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+        const senderName = currentUser?.name || "Inventory Manager";
+
+        switch (templateType) {
+            case "formal":
+                return `Dear ${doc.partyName},\n\nWe are pleased to place our Purchase Order with you. Please find the details below:\n\n- Purchase Order Number: ${doc.docNumber}\n- Order Date: ${formattedDate}\n- Due Date: ${formatDate(doc.dueDate)}\n- Total Order Value: ₹${formattedTotal}\n- Payment Terms: ${doc.paymentTerms || "Net 30"}\n\nThe detailed Purchase Order has been attached to this email as a PDF document (${doc.docNumber}.pdf) for your records.\n\nPlease review the attached document, confirm receipt of this order, and share the estimated delivery timeline.\n\nThank you for your cooperation.\n\nBest regards,\n${senderName}\nIMS Pro Logistics Ltd.`;
+            case "reminder":
+                return `Dear ${doc.partyName},\n\nThis is a quick follow-up regarding the Purchase Order ${doc.docNumber} sent on ${formattedDate}. Details of the order are:\n\n- Purchase Order Number: ${doc.docNumber}\n- Total Order Value: ₹${formattedTotal}\n- Due Date: ${formatDate(doc.dueDate)}\n\nWe have not yet received confirmation for this order. The detailed PO PDF is attached again for your reference.\n\nCould you please review and confirm the estimated delivery date at your earliest convenience?\n\nThanks and regards,\n${senderName}\nIMS Pro Logistics Ltd.`;
+            case "urgent":
+                return `URGENT: Purchase Order ${doc.docNumber} - Action Required\n\nDear ${doc.partyName},\n\nWe would like to request priority processing for Purchase Order ${doc.docNumber} (value: ₹${formattedTotal}) which was issued on ${formattedDate}. Details of the order are:\n\n- Purchase Order Number: ${doc.docNumber}\n- Total Order Value: ₹${formattedTotal}\n- Due Date: ${formatDate(doc.dueDate)}\n\nThis order contains critical inventory replenishment items. The complete PO document is attached as a PDF.\n\nPlease process this order on priority and send us the dispatch details and tracking number at the earliest.\n\nThank you for your prompt attention to this matter.\n\nSincerely,\n${senderName}\nIMS Pro Logistics Ltd.`;
+            default:
+                return "";
+        }
+    };
+
+    const handleOpenEmailModal = (doc, e) => {
+        if (e) e.stopPropagation();
+        
+        // Find supplier email from directory
+        const supplierObj = suppliers.find(s => s.name.trim().toLowerCase() === doc.partyName.trim().toLowerCase()) || {};
+        const recipientEmail = doc.supplierEmail || supplierObj.email || "";
+        
+        setEmailingDoc(doc);
+        setEmailTo(recipientEmail);
+        setEmailSubject(`Purchase Order ${doc.docNumber} - IMS Pro Logistics Ltd.`);
+        setEmailTemplate("formal");
+        setEmailBody(getEmailTemplateBody("formal", doc));
+        setIsSendingEmail(false);
+    };
+
+    const handleTemplateChange = (templateType) => {
+        setEmailTemplate(templateType);
+        setEmailBody(getEmailTemplateBody(templateType, emailingDoc));
+    };
+
+    const handleSendEmail = async (e) => {
+        e.preventDefault();
+        
+        if (!emailTo.trim()) {
+            await showCustomAlert("Please enter a recipient email address.");
+            return;
+        }
+        
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTo.trim())) {
+            await showCustomAlert("Please enter a valid email address.");
+            return;
+        }
+
+        if (!emailSubject.trim()) {
+            await showCustomAlert("Subject is required.");
+            return;
+        }
+
+        if (!emailBody.trim()) {
+            await showCustomAlert("Email body is required.");
+            return;
+        }
+
+        setIsSendingEmail(true);
+        try {
+            await mailService.sendEmail({
+                to: emailTo.trim(),
+                subject: emailSubject.trim(),
+                body: emailBody,
+                attachmentName: `${emailingDoc.docNumber}.pdf`,
+                docNumber: emailingDoc.docNumber,
+                grandTotal: emailingDoc.grandTotal,
+                sender: currentUser?.name || "System",
+                doc: emailingDoc
+            });
+            
+            setEmailLogs(mailService.getEmails());
+            setEmailingDoc(null);
+            
+            // Check settings to show appropriate success message
+            const savedConfig = JSON.parse(localStorage.getItem("email_settings") || "{}");
+            let successMessage = `Email simulated and logged in history successfully!`;
+            if (savedConfig.service === "emailjs") {
+                successMessage = `Direct email successfully dispatched to ${emailTo.trim()} via EmailJS API!`;
+            } else if (savedConfig.service === "smtp") {
+                successMessage = `Direct email successfully dispatched to ${emailTo.trim()} with actual PDF Purchase Order attachment via SMTP server!`;
+            } else if (savedConfig.service === "direct") {
+                successMessage = `Direct email successfully dispatched to ${emailTo.trim()} with PDF Purchase Order attachment!`;
+            }
+
+            if (showToast) {
+                showToast(successMessage);
+            } else {
+                await showCustomAlert(successMessage);
+            }
+        } catch (error) {
+            await showCustomAlert(error.message || "Failed to send email.");
+        } finally {
+            setIsSendingEmail(false);
+        }
+    };
 
     const showCustomAlert = (msg) => {
         return new Promise((resolve) => {
@@ -362,6 +484,8 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
         setErrors({});
         setEditingDocId(null);
         setViewingDoc(null);
+        setEmailingDoc(null);
+        setSelectedLogEmail(null);
         
         setActiveTab(tabName);
     };
@@ -1039,9 +1163,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                 >
                     <i className="bi bi-folder-fill me-2"></i> Saved Documents History ({savedDocs.length})
                 </button>
+                <button
+                    type="button"
+                    className={`page-tab-btn ${activeTab === "email_logs" ? "active" : ""}`}
+                    onClick={() => handleTabSwitch("email_logs")}
+                >
+                    <i className="bi bi-envelope-paper-fill me-2"></i> Email Logs ({emailLogs.length})
+                </button>
             </div>
 
-            {activeTab === "create" ? (
+            {activeTab === "create" && (
                 <div className="doc-wrapper">
             {/* Left Column: Input Form (Form Editor) */}
             <div className="form-editor-panel no-print">
@@ -1738,7 +1869,9 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                 </div>
             </div>
                 </div>
-            ) : (
+            )}
+
+            {activeTab === "history" && (
                 <div className="doc-history-container animate-fade-in no-print">
                     <div className="history-header">
                         <h4 className="section-card-title">
@@ -1896,6 +2029,16 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                             >
                                                 <i className="bi bi-printer-fill me-1"></i> Re-print
                                             </button>
+                                            {doc.docType === "po" && (doc.status || "Done") === "Pending" && (
+                                                <button
+                                                    type="button"
+                                                    className="history-action-btn email text-nowrap"
+                                                    onClick={(e) => handleOpenEmailModal(doc, e)}
+                                                    title="Email PO to Supplier"
+                                                >
+                                                    <i className="bi bi-envelope-fill me-1"></i> Email PO
+                                                </button>
+                                            )}
                                             {(doc.status || "Done") === "Pending" && (
                                                 <button
                                                     type="button"
@@ -1920,6 +2063,96 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             </div>
                         )}
                     </div>
+            )}
+
+            {activeTab === "email_logs" && (
+                <div className="doc-email-logs-container animate-fade-in no-print">
+                    <div className="history-header">
+                        <h4 className="section-card-title">
+                            <i className="bi bi-envelope-paper-fill me-2 text-primary"></i>
+                            Purchase Order Email Dispatch Logs
+                        </h4>
+                        {emailLogs.length > 0 && (
+                            <button
+                                type="button"
+                                className="doc-btn btn-secondary text-danger"
+                                onClick={async () => {
+                                    const confirmed = await showCustomConfirm("Are you sure you want to delete all sent email logs? This cannot be undone.");
+                                    if (confirmed) {
+                                        mailService.clearEmailLogs();
+                                        setEmailLogs([]);
+                                        if (showToast) {
+                                            showToast("Email logs cleared successfully.");
+                                        } else {
+                                            await showCustomAlert("Email logs cleared successfully.");
+                                        }
+                                    }
+                                }}
+                                style={{ flex: 'none', padding: '6px 12px', fontSize: '12.5px', height: 'fit-content' }}
+                            >
+                                <i className="bi bi-trash3-fill me-1"></i> Clear Email Logs
+                            </button>
+                        )}
+                    </div>
+
+                    {emailLogs.length === 0 ? (
+                        <div className="empty-history text-center py-5">
+                            <i className="bi bi-envelope-x text-muted" style={{ fontSize: '48px' }}></i>
+                            <h5 className="mt-3 text-secondary">No sent email logs found</h5>
+                            <p className="text-muted">Simulate emailing a Purchase Order from the Saved Documents History tab.</p>
+                        </div>
+                    ) : (
+                        <div className="email-logs-table-container">
+                            <table className="email-logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>PO Ref</th>
+                                        <th>Supplier Email (To)</th>
+                                        <th>Subject</th>
+                                        <th>Attachment</th>
+                                        <th>Sender</th>
+                                        <th className="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {emailLogs.map((log) => (
+                                        <tr key={log.id} className="email-log-row">
+                                            <td>{new Date(log.timestamp).toLocaleString("en-IN", {
+                                                day: "2-digit",
+                                                month: "short",
+                                                year: "numeric",
+                                                hour: "2-digit",
+                                                minute: "2-digit"
+                                            })}</td>
+                                            <td><strong>{log.docNumber}</strong></td>
+                                            <td><code>{log.to}</code></td>
+                                            <td>{log.subject}</td>
+                                            <td>
+                                                <span className="email-attachment-pill">
+                                                    <i className="bi bi-file-pdf-fill text-danger me-1"></i>
+                                                    {log.attachmentName}
+                                                </span>
+                                            </td>
+                                            <td>{log.sender}</td>
+                                            <td className="text-center">
+                                                <button
+                                                    type="button"
+                                                    className="history-action-btn view text-nowrap"
+                                                    onClick={() => setSelectedLogEmail(log)}
+                                                    title="View Sent Email Content"
+                                                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                                                >
+                                                    <i className="bi bi-eye-fill me-1"></i> View Content
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Detailed Interactive View Modal */}
@@ -2211,6 +2444,18 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                 >
                                     <i className="bi bi-printer-fill"></i> Open Print View
                                 </button>
+                                {viewingDoc.docType === "po" && (viewingDoc.status || "Done") === "Pending" && (
+                                    <button
+                                        type="button"
+                                        className="action-btn email"
+                                        onClick={(e) => {
+                                            setViewingDoc(null);
+                                            handleOpenEmailModal(viewingDoc, e);
+                                        }}
+                                    >
+                                        <i className="bi bi-envelope-fill"></i> Email Supplier
+                                    </button>
+                                )}
                             </div>
                             <button
                                 type="button"
@@ -2476,6 +2721,223 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                                     OK
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Send Purchase Order Email Modal */}
+            {emailingDoc && (
+                <div className="doc-modal-overlay" onClick={() => setEmailingDoc(null)}>
+                    <div className="doc-modal-card animate-scale-up email-send-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="detailed-modal-header">
+                            <div className="header-info">
+                                <span className="doc-type-badge po">
+                                    <i className="bi bi-cart-check-fill me-1"></i> Purchase Order
+                                </span>
+                                <h3>Email PO to Supplier</h3>
+                            </div>
+                            <button
+                                type="button"
+                                className="close-x-btn"
+                                onClick={() => setEmailingDoc(null)}
+                                disabled={isSendingEmail}
+                            >
+                                <i className="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSendEmail} className="detailed-modal-body">
+                            {isSendingEmail ? (
+                                <div className="email-sending-loader text-center py-5">
+                                    <div className="spinner-border text-primary animate-spin" role="status" style={{ width: '3rem', height: '3rem' }}>
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                    <h4 className="mt-4 text-primary animate-pulse">Sending PO with Attachment...</h4>
+                                    <p className="text-muted">Simulating secure SMTP mail dispatch to supplier network</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="email-form-grid">
+                                        <div className="form-group">
+                                            <label className="form-label">To (Supplier Email) <span className="required-star">*</span></label>
+                                            <div className="input-group-with-icon">
+                                                <i className="bi bi-envelope input-icon"></i>
+                                                <input
+                                                    type="email"
+                                                    className="form-input text-lowercase"
+                                                    placeholder="supplier@example.com"
+                                                    value={emailTo}
+                                                    onChange={(e) => setEmailTo(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Subject <span className="required-star">*</span></label>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="Email Subject"
+                                                value={emailSubject}
+                                                onChange={(e) => setEmailSubject(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Attached Document</label>
+                                            <div className="attachment-badge-card">
+                                                <div className="attachment-icon">
+                                                    <i className="bi bi-file-earmark-pdf-fill text-danger"></i>
+                                                </div>
+                                                <div className="attachment-details">
+                                                    <strong className="attachment-name">{emailingDoc.docNumber}.pdf</strong>
+                                                    <span className="attachment-size">PDF Attachment • 45.2 KB • Ready (Document parameters synced)</span>
+                                                </div>
+                                                <span className="attachment-status-badge">Ready</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Template Selector */}
+                                        <div className="form-group">
+                                            <label className="form-label">Email Message Template</label>
+                                            <div className="template-picker-row">
+                                                <button
+                                                    type="button"
+                                                    className={`template-btn ${emailTemplate === "formal" ? "active" : ""}`}
+                                                    onClick={() => handleTemplateChange("formal")}
+                                                >
+                                                    Formal Order
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`template-btn ${emailTemplate === "reminder" ? "active" : ""}`}
+                                                    onClick={() => handleTemplateChange("reminder")}
+                                                >
+                                                    Quick Reminder
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`template-btn ${emailTemplate === "urgent" ? "active" : ""}`}
+                                                    onClick={() => handleTemplateChange("urgent")}
+                                                >
+                                                    Urgent Expedition
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Email Content Body <span className="required-star">*</span></label>
+                                            <textarea
+                                                className="form-input form-textarea-large"
+                                                placeholder="Write your custom email content here..."
+                                                value={emailBody}
+                                                onChange={(e) => setEmailBody(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="detailed-modal-footer mt-4">
+                                        <button
+                                            type="button"
+                                            className="action-btn close"
+                                            onClick={() => setEmailingDoc(null)}
+                                            disabled={isSendingEmail}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="action-btn email-send-btn"
+                                            disabled={isSendingEmail}
+                                        >
+                                            <i className="bi bi-send-fill me-1"></i> Send PO Email
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* View Sent Email Log Detailed Modal */}
+            {selectedLogEmail && (
+                <div className="doc-modal-overlay" onClick={() => setSelectedLogEmail(null)}>
+                    <div className="doc-modal-card animate-scale-up email-view-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="detailed-modal-header">
+                            <div className="header-info">
+                                <span className="doc-type-badge status-delivered">
+                                    <i className="bi bi-check2-all me-1"></i> Sent Log
+                                </span>
+                                <h3>Email Details</h3>
+                            </div>
+                            <button
+                                type="button"
+                                className="close-x-btn"
+                                onClick={() => setSelectedLogEmail(null)}
+                            >
+                                <i className="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div className="detailed-modal-body">
+                            <div className="email-log-meta-box">
+                                <div className="meta-item">
+                                    <strong>From:</strong> <span>IMS Pro System (noreply@imspro.logistics.com)</span>
+                                </div>
+                                <div className="meta-item">
+                                    <strong>To:</strong> <span><code>{selectedLogEmail.to}</code></span>
+                                </div>
+                                <div className="meta-item">
+                                    <strong>Sent:</strong> <span>{new Date(selectedLogEmail.timestamp).toLocaleString("en-IN", {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit'
+                                    })}</span>
+                                </div>
+                                <div className="meta-item">
+                                    <strong>Subject:</strong> <span>{selectedLogEmail.subject}</span>
+                                </div>
+                                <div className="meta-item">
+                                    <strong>Sender User:</strong> <span>{selectedLogEmail.sender}</span>
+                                </div>
+                                <div className="meta-item attachment-row">
+                                    <strong>Attachment:</strong>
+                                    <span className="email-attachment-pill interactive" onClick={async () => {
+                                        const docFound = savedDocs.find(d => d.docNumber === selectedLogEmail.docNumber);
+                                        if (docFound) {
+                                            setSelectedLogEmail(null);
+                                            setPreviewDoc(docFound);
+                                        } else {
+                                            await showCustomAlert("Attached PO document details not found in saved history (might have been deleted).");
+                                        }
+                                    }} title="Click to view attached PO document">
+                                        <i className="bi bi-file-pdf-fill text-danger me-1"></i>
+                                        {selectedLogEmail.attachmentName} (45.2 KB)
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div className="email-log-content-body">
+                                <h5>Message Body:</h5>
+                                <div className="email-body-text">{selectedLogEmail.body}</div>
+                            </div>
+                        </div>
+                        <div className="detailed-modal-footer">
+                            <button
+                                type="button"
+                                className="action-btn close"
+                                onClick={() => setSelectedLogEmail(null)}
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>

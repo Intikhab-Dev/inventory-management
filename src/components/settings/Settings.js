@@ -26,6 +26,25 @@ const Settings = () => {
     const [uoms, setUoms] = useState(() => loadList(STORAGE_KEY_UOM, DEFAULT_UOMS));
     const [taxSlabs, setTaxSlabs] = useState(() => loadList(STORAGE_KEY_TAX, DEFAULT_TAX_SLABS));
 
+    // Email direct send configuration settings
+    const [emailSettings, setEmailSettings] = useState(() => {
+        try {
+            const saved = localStorage.getItem("email_settings");
+            return saved ? JSON.parse(saved) : { service: "direct", serviceId: "", templateId: "", publicKey: "" };
+        } catch {
+            return { service: "direct", serviceId: "", templateId: "", publicKey: "" };
+        }
+    });
+
+    const handleEmailSettingChange = (field, val) => {
+        setEmailSettings(prev => {
+            const updated = { ...prev, [field]: val };
+            localStorage.setItem("email_settings", JSON.stringify(updated));
+            return updated;
+        });
+        flash("Email configurations updated ✓");
+    };
+
     const [newCat, setNewCat] = useState("");
     const [newWh,  setNewWh]  = useState("");
     const [newUom, setNewUom] = useState("");
@@ -339,6 +358,143 @@ const Settings = () => {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+
+                {/* ── EMAIL DISPATCH SETTINGS ── */}
+                <div className="settings-card full-row-setting" style={{ gridColumn: "1 / -1" }}>
+                    <div className="settings-card-header">
+                        <i className="bi bi-envelope-at-fill text-primary me-2"></i>
+                        <h5>Email Dispatch Settings (Direct System Sending)</h5>
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "16px 0 0" }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: "12.5px", fontWeight: "700" }}>Email Send Provider</label>
+                            <select
+                                className="form-input"
+                                value={emailSettings.service}
+                                onChange={e => handleEmailSettingChange("service", e.target.value)}
+                                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                            >
+                                <option value="direct">Direct Send (No Registration / API Keys Required!)</option>
+                                <option value="smtp">Direct SMTP Server (Sends actual PDF attachments, NO links!)</option>
+                                <option value="mock">Simulation Mode (Simulate Delivery & Log in History)</option>
+                                <option value="emailjs">EmailJS Direct Mode (Requires Custom API Configuration)</option>
+                            </select>
+                        </div>
+                        
+                        {emailSettings.service === "smtp" && (
+                            <div className="smtp-inputs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginTop: "4px" }}>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>SMTP Host <span className="required-star">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. smtp.gmail.com"
+                                        value={emailSettings.smtpHost || ""}
+                                        onChange={e => handleEmailSettingChange("smtpHost", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>SMTP Port</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. 587"
+                                        value={emailSettings.smtpPort || ""}
+                                        onChange={e => handleEmailSettingChange("smtpPort", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>SMTP Username (Email) <span className="required-star">*</span></label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        placeholder="e.g. manager@gmail.com"
+                                        value={emailSettings.smtpUsername || ""}
+                                        onChange={e => handleEmailSettingChange("smtpUsername", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>SMTP Password / App Password <span className="required-star">*</span></label>
+                                    <input
+                                        type="password"
+                                        className="form-input"
+                                        placeholder="Enter password"
+                                        value={emailSettings.smtpPassword || ""}
+                                        onChange={e => handleEmailSettingChange("smtpPassword", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>From Email (Sender)</label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        placeholder="e.g. manager@gmail.com"
+                                        value={emailSettings.smtpFrom || ""}
+                                        onChange={e => handleEmailSettingChange("smtpFrom", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {emailSettings.service === "emailjs" && (
+                            <div className="emailjs-inputs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginTop: "4px" }}>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>EmailJS Service ID <span className="required-star">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. service_gmail"
+                                        value={emailSettings.serviceId}
+                                        onChange={e => handleEmailSettingChange("serviceId", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>EmailJS Template ID <span className="required-star">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. template_purchase_order"
+                                        value={emailSettings.templateId}
+                                        onChange={e => handleEmailSettingChange("templateId", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label" style={{ fontSize: "11px", fontWeight: "700" }}>EmailJS Public Key (User ID) <span className="required-star">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g. user_A1B2C3D4E5F6G7H8"
+                                        value={emailSettings.publicKey}
+                                        onChange={e => handleEmailSettingChange("publicKey", e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        <p style={{ margin: 0, fontSize: "11.5px", color: "#64748b", lineHeight: "1.4" }}>
+                            {emailSettings.service === "direct" && (
+                                <span><strong>Direct Send (Zero Config):</strong> Emails are sent directly to the supplier's address using a free form submit proxy. <em>(Note: Files are sent as secure download links, and the very first time you send to a supplier, they will receive a one-time activation link from FormSubmit.co to confirm consent.)</em></span>
+                            )}
+                            {emailSettings.service === "smtp" && (
+                                <span><strong>Direct SMTP Server:</strong> Connect to any SMTP mail server (Gmail, Outlook, Zoho, etc.) directly. **This attaches the actual PO PDF file directly to the email without any external download links or branding URLs!** <em>(For Gmail, make sure to generate an App Password in your Google Account settings.)</em></span>
+                            )}
+                            {emailSettings.service === "emailjs" && (
+                                <span><strong>Direct Send (EmailJS):</strong> Register a free account at <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5', fontWeight: 'bold'}}>emailjs.com</a>, connect your inbox, and add the credentials above. All emails will dispatch directly from your configured address! <em>(Note: EmailJS requires a paid plan to send file attachments.)</em></span>
+                            )}
+                            {emailSettings.service === "mock" && (
+                                <span><strong>Simulation Mode:</strong> Emails are not dispatched over the internet. Instead, they are generated, stored in your local <strong>Email Logs</strong> tab, recorded in the Dashboard Activity logs, and shown with premium mock loading animations.</span>
+                            )}
+                        </p>
                     </div>
                 </div>
 
