@@ -2927,7 +2927,14 @@ const DocGenerator = ({ items, onUpdateItems, currentUser, poPrefill, onClearPre
                             
                             <div className="email-log-content-body">
                                 <h5>Message Body:</h5>
-                                <div className="email-body-text">{selectedLogEmail.body}</div>
+                                <div 
+                                    className="email-body-text" 
+                                    dangerouslySetInnerHTML={{ 
+                                        __html: selectedLogEmail.body && /<[a-z][\s\S]*>/i.test(selectedLogEmail.body) 
+                                            ? selectedLogEmail.body 
+                                            : (selectedLogEmail.body || "").replace(/\n/g, "<br>") 
+                                    }} 
+                                />
                             </div>
                         </div>
                         <div className="detailed-modal-footer">
