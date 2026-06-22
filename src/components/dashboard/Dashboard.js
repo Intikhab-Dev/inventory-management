@@ -5,7 +5,7 @@ import { activityService } from "../../services/activityService";
 import { transactionService } from "../../services/transactionService";
 import "./Dashboard.css";
 
-const Dashboard = ({ items, darkMode }) => {
+const Dashboard = ({ items, darkMode, setPage, setSelectedItem }) => {
   const [range, setRange] = useState("all");
   const [warehouseFilter, setWarehouseFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -1059,6 +1059,18 @@ const Dashboard = ({ items, darkMode }) => {
     };
   }, [categoryValuationData, darkMode, tooltipBg, tooltipBorder, tooltipText]);
 
+  const hasActiveFilters = useMemo(() => {
+    return (
+      warehouseFilter !== "all" ||
+      categoryFilter !== "all" ||
+      supplierFilter !== "all" ||
+      statusFilter !== "all" ||
+      purchaseDateFrom !== "" ||
+      purchaseDateTo !== "" ||
+      range !== "all"
+    );
+  }, [warehouseFilter, categoryFilter, supplierFilter, statusFilter, purchaseDateFrom, purchaseDateTo, range]);
+
   return (
     <div className="dashboard animate-fade-in">
 
@@ -1354,6 +1366,28 @@ const Dashboard = ({ items, darkMode }) => {
               </div>
             )}
           </div>
+
+          {/* Reset All Filters Button */}
+          {hasActiveFilters && (
+            <button
+              className="clear-all-filters-btn animate-fade-in"
+              onClick={() => {
+                setWarehouseFilter("all");
+                setCategoryFilter("all");
+                setSupplierFilter("all");
+                setStatusFilter("all");
+                setPurchaseDateFrom("");
+                setPurchaseDateTo("");
+                setTempDateFrom("");
+                setTempDateTo("");
+                setRange("all");
+              }}
+              title="Reset all filters to default"
+            >
+              <i className="bi bi-x-circle"></i>
+              <span>Reset All</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1651,6 +1685,64 @@ const Dashboard = ({ items, darkMode }) => {
 
         {/* SIDEBAR COLUMN (RIGHT) */}
         <div className="dashboard-sidebar">
+
+          {/* QUICK ACTIONS PANEL WIDGET */}
+          <div className="quick-actions-card card-box animate-fade-in mb-4">
+            <h3 style={{ margin: "0 0 16px 0" }}>
+              <i className="bi bi-lightning-charge-fill text-warning me-2"></i>
+              Quick Actions
+            </h3>
+            <div className="quick-actions-grid">
+              <button 
+                className="quick-action-btn btn-add"
+                onClick={() => {
+                  if (setSelectedItem) setSelectedItem(null);
+                  if (setPage) setPage("add");
+                }}
+              >
+                <div className="action-icon-wrapper">
+                  <i className="bi bi-plus-circle"></i>
+                </div>
+                <span>Add Item</span>
+              </button>
+
+              <button 
+                className="quick-action-btn btn-dispatch"
+                onClick={() => {
+                  if (setPage) setPage("stockout");
+                }}
+              >
+                <div className="action-icon-wrapper">
+                  <i className="bi bi-box-arrow-up"></i>
+                </div>
+                <span>Dispatch</span>
+              </button>
+
+              <button 
+                className="quick-action-btn btn-transfer"
+                onClick={() => {
+                  if (setPage) setPage("transfer");
+                }}
+              >
+                <div className="action-icon-wrapper">
+                  <i className="bi bi-arrow-left-right"></i>
+                </div>
+                <span>Transfer</span>
+              </button>
+
+              <button 
+                className="quick-action-btn btn-invoice"
+                onClick={() => {
+                  if (setPage) setPage("documents");
+                }}
+              >
+                <div className="action-icon-wrapper">
+                  <i className="bi bi-file-earmark-text"></i>
+                </div>
+                <span>Invoices</span>
+              </button>
+            </div>
+          </div>
 
           {/* LOW STOCK ALERTS WIDGET */}
           {lowStockItems.length > 0 && (

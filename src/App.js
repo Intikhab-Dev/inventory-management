@@ -660,7 +660,14 @@ function App() {
 
         <div className="page-content">
           {/* 🔹 Pages */}
-          {page === "dashboard" && <Dashboard items={items} darkMode={darkMode} />}
+          {page === "dashboard" && (
+            <Dashboard
+              items={items}
+              darkMode={darkMode}
+              setPage={setPage}
+              setSelectedItem={setSelectedItem}
+            />
+          )}
 
           {page === "list" && (
             <ItemList
