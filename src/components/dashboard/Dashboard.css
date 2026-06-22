@@ -16,7 +16,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -1586,4 +1586,113 @@ body.dark .item-qty-tag {
   .grid-col-12 {
     grid-column: span 1;
   }
+}
+
+/* ==========================================================================
+   FILTERS PANEL BELOW HEADING
+   ========================================================================== */
+
+.dashboard-filters-panel {
+  position: relative;
+  z-index: 10;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s ease;
+}
+
+body.dark .dashboard-filters-panel {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.filters-panel-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters-panel-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+body.dark .filters-panel-label {
+  color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+  .dashboard-filters-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+  
+  .dashboard-filters-panel > .d-flex {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Custom Date Range picker dropdown overlay overrides */
+.date-range-picker-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+body.dark .date-range-picker-panel {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+.date-range-picker-panel label {
+  color: #64748b !important;
+}
+
+body.dark .date-range-picker-panel label {
+  color: #cbd5e1 !important;
+}
+
+.date-range-picker-panel input[type="date"] {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+}
+
+body.dark .date-range-picker-panel input[type="date"] {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #0f172a;
+  color: #f8fafc;
+  color-scheme: dark;
+}
+
+.date-range-picker-panel input[type="date"]:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+body.dark .date-range-picker-panel input[type="date"]:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25);
 }

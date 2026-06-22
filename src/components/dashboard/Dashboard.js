@@ -8,14 +8,29 @@ import "./Dashboard.css";
 const Dashboard = ({ items, darkMode }) => {
   const [range, setRange] = useState("all");
   const [warehouseFilter, setWarehouseFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [purchaseDateFrom, setPurchaseDateFrom] = useState("");
+  const [purchaseDateTo, setPurchaseDateTo] = useState("");
+  const [tempDateFrom, setTempDateFrom] = useState("");
+  const [tempDateTo, setTempDateTo] = useState("");
   const [activeTab, setActiveTab] = useState("value");
   const [logs, setLogs] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showRangeDropdown, setShowRangeDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showPurchaseDateDropdown, setShowPurchaseDateDropdown] = useState(false);
   const [expandWarehouseLayout, setExpandWarehouseLayout] = useState(false);
   const warehouseRef = useRef(null);
   const rangeRef = useRef(null);
+  const categoryRef = useRef(null);
+  const supplierRef = useRef(null);
+  const statusRef = useRef(null);
+  const purchaseDateRef = useRef(null);
   const now = Date.now();
 
   useEffect(() => {
@@ -26,12 +41,32 @@ const Dashboard = ({ items, darkMode }) => {
       if (rangeRef.current && !rangeRef.current.contains(event.target)) {
         setShowRangeDropdown(false);
       }
+      if (categoryRef.current && !categoryRef.current.contains(event.target)) {
+        setShowCategoryDropdown(false);
+      }
+      if (supplierRef.current && !supplierRef.current.contains(event.target)) {
+        setShowSupplierDropdown(false);
+      }
+      if (statusRef.current && !statusRef.current.contains(event.target)) {
+        setShowStatusDropdown(false);
+      }
+      if (purchaseDateRef.current && !purchaseDateRef.current.contains(event.target)) {
+        setShowPurchaseDateDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Sync temporary dates with applied date state when dropdown opens
+  useEffect(() => {
+    if (showPurchaseDateDropdown) {
+      setTempDateFrom(purchaseDateFrom);
+      setTempDateTo(purchaseDateTo);
+    }
+  }, [showPurchaseDateDropdown, purchaseDateFrom, purchaseDateTo]);
 
   useEffect(() => {
     setLogs(activityService.getLogs());
@@ -44,6 +79,28 @@ const Dashboard = ({ items, darkMode }) => {
       if (item.warehouse) {
         const w = item.warehouse.trim();
         if (w) unique.add(w);
+      }
+    });
+    return [...unique].sort();
+  }, [items]);
+
+  const categories = useMemo(() => {
+    const unique = new Set();
+    items.forEach((item) => {
+      if (item.category) {
+        const c = item.category.trim();
+        if (c) unique.add(c);
+      }
+    });
+    return [...unique].sort();
+  }, [items]);
+
+  const suppliers = useMemo(() => {
+    const unique = new Set();
+    items.forEach((item) => {
+      if (item.supplier) {
+        const s = item.supplier.trim();
+        if (s) unique.add(s);
       }
     });
     return [...unique].sort();
@@ -155,6 +212,13 @@ const Dashboard = ({ items, darkMode }) => {
     });
   };
 
+  const getPurchaseDateLabel = () => {
+    if (!purchaseDateFrom && !purchaseDateTo) return "Purchase Date";
+    const fromStr = purchaseDateFrom ? new Date(purchaseDateFrom).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—";
+    const toStr = purchaseDateTo ? new Date(purchaseDateTo).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—";
+    return `${fromStr} to ${toStr}`;
+  };
+
   // 🔹 FILTER DATA
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -172,9 +236,36 @@ const Dashboard = ({ items, darkMode }) => {
         warehouseFilter === "all" ? true :
           (item.warehouse || "").trim() === warehouseFilter;
 
-      return matchesRange && matchesWarehouse;
+      const matchesCategory =
+        categoryFilter === "all" ? true :
+          (item.category || "").trim() === categoryFilter;
+
+      const matchesSupplier =
+        supplierFilter === "all" ? true :
+          (item.supplier || "").trim() === supplierFilter;
+
+      const matchesStatus =
+        statusFilter === "all" ? true :
+          item.status === (statusFilter === "active" ? "1" : "0");
+
+      let matchesPurchaseDate = true;
+      if (purchaseDateFrom || purchaseDateTo) {
+        const pDate = item.purchaseDate ? new Date(item.purchaseDate) : null;
+        if (!pDate) {
+          matchesPurchaseDate = false;
+        } else {
+          if (purchaseDateFrom) {
+            matchesPurchaseDate = matchesPurchaseDate && pDate >= new Date(purchaseDateFrom);
+          }
+          if (purchaseDateTo) {
+            matchesPurchaseDate = matchesPurchaseDate && pDate <= new Date(purchaseDateTo);
+          }
+        }
+      }
+
+      return matchesRange && matchesWarehouse && matchesCategory && matchesSupplier && matchesStatus && matchesPurchaseDate;
     });
-  }, [items, range, warehouseFilter, now]);
+  }, [items, range, warehouseFilter, categoryFilter, supplierFilter, statusFilter, purchaseDateFrom, purchaseDateTo, now]);
 
   const lowStockItems = useMemo(() => {
     return filteredItems.filter(
@@ -346,9 +437,12 @@ const Dashboard = ({ items, darkMode }) => {
   // 🔹 STOCK FLOW IN/OUT ANALYSIS
   const stockFlowData = useMemo(() => {
     const flowMap = {}; // { 'YYYY-MM-DD': { in: 0, out: 0 } }
+    const allowedCodes = new Set(filteredItems.map(item => item.code));
 
     transactions.forEach((tx) => {
       if (!tx.timestamp) return;
+      if (!allowedCodes.has(tx.itemId)) return;
+
       const diffDays = (now - Number(tx.timestamp)) / (1000 * 60 * 60 * 24);
 
       if (range !== "all") {
@@ -374,7 +468,7 @@ const Dashboard = ({ items, darkMode }) => {
     const outValues = dates.map(d => flowMap[d].out);
 
     return { dates, inValues, outValues };
-  }, [transactions, range, now]);
+  }, [transactions, range, filteredItems, now]);
 
   // 🔹 STOCK HEALTH CATEGORIZATION
   const stockHealthData = useMemo(() => {
@@ -421,8 +515,9 @@ const Dashboard = ({ items, darkMode }) => {
 
   // 🔹 RECENT TRANSACTIONS FEED
   const recentTransactions = useMemo(() => {
-    return transactions.slice(0, 5);
-  }, [transactions]);
+    const allowedCodes = new Set(filteredItems.map(item => item.code));
+    return transactions.filter(tx => allowedCodes.has(tx.itemId)).slice(0, 5);
+  }, [transactions, filteredItems]);
 
   // 🔹 PREDICTIVE REORDER FORECAST
   const reorderForecast = useMemo(() => {
@@ -978,6 +1073,14 @@ const Dashboard = ({ items, darkMode }) => {
             Real-time overview of inventory insights
           </p>
         </div>
+      </div>
+
+      {/* FILTERS PANEL */}
+      <div className="dashboard-filters-panel animate-fade-in">
+        <div className="filters-panel-left">
+          <i className="bi bi-funnel-fill text-primary" style={{ fontSize: "15px" }}></i>
+          <span className="filters-panel-label">Quick Filters</span>
+        </div>
 
         <div className="d-flex align-items-center gap-3 flex-wrap">
           {/* Warehouse Filter Custom Dropdown */}
@@ -1016,6 +1119,199 @@ const Dashboard = ({ items, darkMode }) => {
                     {w}
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Category Filter Custom Dropdown */}
+          <div className="custom-dropdown-container" ref={categoryRef}>
+            <button
+              className={`custom-dropdown-btn ${showCategoryDropdown ? "active" : ""}`}
+              onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+            >
+              <i className="bi bi-tags me-2 text-primary"></i>
+              <span>
+                {categoryFilter === "all" ? "All Categories" : categoryFilter}
+              </span>
+              <i className={`bi bi-chevron-down ms-2 arrow-icon ${showCategoryDropdown ? "rotate" : ""}`}></i>
+            </button>
+
+            {showCategoryDropdown && (
+              <div className="custom-dropdown-list animate-slide-up">
+                <div
+                  className={`custom-dropdown-item ${categoryFilter === "all" ? "selected" : ""}`}
+                  onClick={() => {
+                    setCategoryFilter("all");
+                    setShowCategoryDropdown(false);
+                  }}
+                >
+                  All Categories
+                </div>
+                {categories.map((c) => (
+                  <div
+                    key={c}
+                    className={`custom-dropdown-item ${categoryFilter === c ? "selected" : ""}`}
+                    onClick={() => {
+                      setCategoryFilter(c);
+                      setShowCategoryDropdown(false);
+                    }}
+                  >
+                    {c}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Supplier Filter Custom Dropdown */}
+          <div className="custom-dropdown-container" ref={supplierRef}>
+            <button
+              className={`custom-dropdown-btn ${showSupplierDropdown ? "active" : ""}`}
+              onClick={() => setShowSupplierDropdown(!showSupplierDropdown)}
+            >
+              <i className="bi bi-people me-2 text-primary"></i>
+              <span>
+                {supplierFilter === "all" ? "All Suppliers" : supplierFilter}
+              </span>
+              <i className={`bi bi-chevron-down ms-2 arrow-icon ${showSupplierDropdown ? "rotate" : ""}`}></i>
+            </button>
+
+            {showSupplierDropdown && (
+              <div className="custom-dropdown-list animate-slide-up">
+                <div
+                  className={`custom-dropdown-item ${supplierFilter === "all" ? "selected" : ""}`}
+                  onClick={() => {
+                    setSupplierFilter("all");
+                    setShowSupplierDropdown(false);
+                  }}
+                >
+                  All Suppliers
+                </div>
+                {suppliers.map((s) => (
+                  <div
+                    key={s}
+                    className={`custom-dropdown-item ${supplierFilter === s ? "selected" : ""}`}
+                    onClick={() => {
+                      setSupplierFilter(s);
+                      setShowSupplierDropdown(false);
+                    }}
+                  >
+                    {s}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Status Filter Custom Dropdown */}
+          <div className="custom-dropdown-container" ref={statusRef}>
+            <button
+              className={`custom-dropdown-btn ${showStatusDropdown ? "active" : ""}`}
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+            >
+              <i className="bi bi-toggle-on me-2 text-primary"></i>
+              <span>
+                {statusFilter === "all" ? "All Statuses" :
+                 statusFilter === "active" ? "Active Only" : "Inactive Only"}
+              </span>
+              <i className={`bi bi-chevron-down ms-2 arrow-icon ${showStatusDropdown ? "rotate" : ""}`}></i>
+            </button>
+
+            {showStatusDropdown && (
+              <div className="custom-dropdown-list animate-slide-up">
+                {[
+                  { value: "all", label: "All Statuses" },
+                  { value: "active", label: "Active Only" },
+                  { value: "inactive", label: "Inactive Only" }
+                ].map((option) => (
+                  <div
+                    key={option.value}
+                    className={`custom-dropdown-item ${statusFilter === option.value ? "selected" : ""}`}
+                    onClick={() => {
+                      setStatusFilter(option.value);
+                      setShowStatusDropdown(false);
+                    }}
+                  >
+                    {option.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+ 
+          {/* Purchase Date Range Custom Dropdown */}
+          <div className="custom-dropdown-container" ref={purchaseDateRef}>
+            <button
+              className={`custom-dropdown-btn ${showPurchaseDateDropdown ? "active" : ""}`}
+              onClick={() => setShowPurchaseDateDropdown(!showPurchaseDateDropdown)}
+            >
+              <i className="bi bi-calendar-range me-2 text-primary"></i>
+              <span>{getPurchaseDateLabel()}</span>
+              <i className={`bi bi-chevron-down ms-2 arrow-icon ${showPurchaseDateDropdown ? "rotate" : ""}`}></i>
+            </button>
+
+            {showPurchaseDateDropdown && (
+              <div className="custom-dropdown-list date-range-picker-panel animate-slide-up" style={{ minWidth: "260px", padding: "14px", zIndex: 110 }}>
+                <div className="d-flex flex-column gap-3">
+                  <div className="d-flex flex-column gap-1">
+                    <label className="text-muted fw-bold" style={{ fontSize: "11px", textTransform: "uppercase" }}>From Date</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={tempDateFrom}
+                      onChange={(e) => setTempDateFrom(e.target.value)}
+                      onClick={(e) => {
+                        if (typeof e.target.showPicker === "function") {
+                          try { e.target.showPicker(); } catch (err) {}
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="d-flex flex-column gap-1">
+                    <label className="text-muted fw-bold" style={{ fontSize: "11px", textTransform: "uppercase" }}>To Date</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={tempDateTo}
+                      onChange={(e) => setTempDateTo(e.target.value)}
+                      onClick={(e) => {
+                        if (typeof e.target.showPicker === "function") {
+                          try { e.target.showPicker(); } catch (err) {}
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="d-flex gap-2 justify-content-end mt-1">
+                    {(purchaseDateFrom || purchaseDateTo || tempDateFrom || tempDateTo) && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        style={{ fontSize: "11.5px", padding: "4px 10px" }}
+                        onClick={() => {
+                          setTempDateFrom("");
+                          setTempDateTo("");
+                          setPurchaseDateFrom("");
+                          setPurchaseDateTo("");
+                          setShowPurchaseDateDropdown(false);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      style={{ fontSize: "11.5px", padding: "4px 12px" }}
+                      onClick={() => {
+                        setPurchaseDateFrom(tempDateFrom);
+                        setPurchaseDateTo(tempDateTo);
+                        setShowPurchaseDateDropdown(false);
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
